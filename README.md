@@ -52,6 +52,7 @@ npx ts-node ./src/index.ts fix                 # Show fix suggestions for each c
 npx ts-node ./src/index.ts debt                # Crash count grouped by pattern
 npx ts-node ./src/index.ts baseline            # Record current state
 npx ts-node ./src/index.ts doctor --fail-on-new  # CI mode — block on new crashes only
+npx ts-node path/to/src/index.ts command # Generals rules
 ```
 
 ---
