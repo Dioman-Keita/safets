@@ -3,12 +3,6 @@
  * SafeTS v0.7
  * "Finds common runtime crashes TypeScript can't detect"
  *
- * Changelog from v0.6:
- *   - FIX: checker usability test before trusting the program
- *   - FIX: deduplicated JSON.parse detection (no double reports)
- *   - FIX: findTsFiles() ignores coverage/storybook/generated/tmp/.cache
- *   - FIX: UX wording — no more "SafeTS > TypeScript" perception
- *
  * Usage:
  *   npx ts-node index.ts doctor
  *   npx ts-node index.ts doctor --baseline
