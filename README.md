@@ -86,10 +86,10 @@ SafeTS simulates the exact path your code takes to crash.
 
 ```bash
 # Save current state as baseline
-npx ts-node ./index.ts baseline
+npx ts-node ./src/index.ts baseline
 
 # In CI — only block on new crashes, not existing ones
-npx ts-node ./index.ts doctor --fail-on-new
+npx ts-node ./src/index.ts doctor --fail-on-new
 ```
 
 Existing crashes are tracked in `.safets-baseline.json`.
