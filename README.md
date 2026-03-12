@@ -11,7 +11,7 @@ SafeTS analyzes your TypeScript code and reports places where your app can crash
 No installation required. Run directly in any TypeScript project:
 
 ```bash
-npx ts-node ./index.ts doctor
+npx ts-node ./src/index.ts doctor
 ```
 
 ---
@@ -47,28 +47,28 @@ SafeTS Runtime Safety Report
 ## Commands
 
 ```bash
-npx ts-node ./index.ts doctor              # Scan project, show crash report
-npx ts-node ./index.ts fix                 # Show fix suggestions for each crash
-npx ts-node ./index.ts debt                # Crash count grouped by pattern
-npx ts-node ./index.ts baseline            # Record current state
-npx ts-node ./index.ts doctor --fail-on-new  # CI mode — block on new crashes only
+npx ts-node ./src/index.ts doctor              # Scan project, show crash report
+npx ts-node ./src/index.ts fix                 # Show fix suggestions for each crash
+npx ts-node ./src/index.ts debt                # Crash count grouped by pattern
+npx ts-node ./src/index.ts baseline            # Record current state
+npx ts-node ./src/index.ts doctor --fail-on-new  # CI mode — block on new crashes only
 ```
 
 ---
 
 ## What SafeTS detects
 
-| Pattern | Example | Error prevented |
-|---|---|---|
-| Unsafe property access | `user.profile.name` | `Cannot read properties of undefined` |
-| Unsafe destructuring | `const { name } = user` | `Cannot destructure property of undefined` |
-| Unsafe array index | `arr[0].name` | `Cannot read properties of undefined` |
-| Unprotected JSON.parse | `JSON.parse(input)` | `SyntaxError: Unexpected token` |
-| Unsafe process.env | `process.env.KEY!` | Runtime crash on missing env var |
-| Non-null assertion | `value!.method()` | Crash silently bypassed by compiler |
-| Unsafe access after await | `await x(); value.prop` | State mutation between narrowing and access |
-| Unsafe Promise.all destructuring | `const [a] = await Promise.all(...)` | Undefined element access |
-| Unsafe Map/Record access | `map[key].value` | Key may not exist |
+| Pattern                          | Example                              | Error prevented                             |
+| -------------------------------- | ------------------------------------ | ------------------------------------------- |
+| Unsafe property access           | `user.profile.name`                  | `Cannot read properties of undefined`       |
+| Unsafe destructuring             | `const { name } = user`              | `Cannot destructure property of undefined`  |
+| Unsafe array index               | `arr[0].name`                        | `Cannot read properties of undefined`       |
+| Unprotected JSON.parse           | `JSON.parse(input)`                  | `SyntaxError: Unexpected token`             |
+| Unsafe process.env               | `process.env.KEY!`                   | Runtime crash on missing env var            |
+| Non-null assertion               | `value!.method()`                    | Crash silently bypassed by compiler         |
+| Unsafe access after await        | `await x(); value.prop`              | State mutation between narrowing and access |
+| Unsafe Promise.all destructuring | `const [a] = await Promise.all(...)` | Undefined element access                    |
+| Unsafe Map/Record access         | `map[key].value`                     | Key may not exist                           |
 
 ---
 
@@ -77,7 +77,7 @@ npx ts-node ./index.ts doctor --fail-on-new  # CI mode — block on new crashes 
 TypeScript strict mode is a config option someone can forget to enable.
 SafeTS is a step in your CI that finds what TypeScript misses even with strict mode on.
 
-The key difference: TypeScript tells you a type *could* be undefined.
+The key difference: TypeScript tells you a type _could_ be undefined.
 SafeTS simulates the exact path your code takes to crash.
 
 ---
