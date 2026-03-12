@@ -1,0 +1,26 @@
+{
+  "name": "safets",
+  "version": "0.6.0",
+  "description": "Detect the most common JavaScript runtime crash before it happens",
+  "main": "index.ts",
+  "scripts": {
+    "doctor": "ts-node ./index.ts doctor",
+    "fix": "ts-node ./index.ts fix",
+    "debt": "ts-node ./index.ts debt",
+    "baseline": "ts-node ./index.ts baseline"
+  },
+  "keywords": [
+    "typescript",
+    "runtime",
+    "crash",
+    "static-analysis",
+    "linter",
+    "safety"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.0.0",
+    "typescript": "^5.0.0"
+  }
+}
