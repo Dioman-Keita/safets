@@ -23,12 +23,12 @@ No additional dependencies. SafeTS uses the TypeScript compiler already in your 
 ## Usage
 
 ```bash
-npx ts-node --esm src/index.ts doctor
-npx ts-node --esm src/index.ts doctor --include-tests
-npx ts-node --esm src/index.ts fix
-npx ts-node --esm src/index.ts debt
-npx ts-node --esm src/index.ts baseline
-npx ts-node --esm src/index.ts doctor --fail-on-new
+safets doctor
+safets doctor --include-tests
+safets fix
+safets debt
+safets baseline
+safets doctor --fail-on-new
 ```
 
 ---

@@ -40,6 +40,28 @@ export function isTestFile(filePath: string): boolean {
   return TEST_PATTERNS.some((pattern) => pattern.test(filePath.replaceAll("\\", "/")));
 }
 
+export function normalizeFilePath(filePath: string): string {
+  return path.normalize(filePath);
+}
+
+export function toPortablePath(filePath: string): string {
+  return normalizeFilePath(filePath).replaceAll("\\", "/");
+}
+
+export function toProjectRelativePath(projectRoot: string, filePath: string): string {
+  return toPortablePath(path.relative(projectRoot, normalizeFilePath(filePath)));
+}
+
+export function isAnalyzableTsFile(filePath: string): boolean {
+  const normalizedPath = normalizeFilePath(filePath);
+  const fileName = path.basename(normalizedPath);
+  return (
+    fileName.endsWith(".ts") &&
+    !fileName.endsWith(".d.ts") &&
+    !isBundleFile(normalizedPath)
+  );
+}
+
 export function isBundleFile(filePath: string): boolean {
   try {
     const content = fs.readFileSync(filePath, "utf-8");
@@ -63,12 +85,8 @@ export function findTsFiles(dir: string, files: string[] = []): string[] {
       try {
         if (entry.isDirectory()) {
           findTsFiles(fullPath, files);
-        } else if (
-          entry.name.endsWith(".ts") &&
-          !entry.name.endsWith(".d.ts") &&
-          !isBundleFile(fullPath)
-        ) {
-          files.push(fullPath);
+        } else if (isAnalyzableTsFile(fullPath)) {
+          files.push(normalizeFilePath(fullPath));
         }
       } catch {
         // Skip unreadable entries.

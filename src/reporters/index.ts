@@ -170,6 +170,12 @@ export function printDebt(crashes: CrashReport[], base: Baseline | null) {
   console.log();
 }
 
+export function printBaselineMismatchWarning(baselineMismatch: string | null) {
+  if (baselineMismatch) {
+    console.log(c.yellow(`  ! Baseline mismatch: ${baselineMismatch}\n`));
+  }
+}
+
 export function printFix(crashes: CrashReport[], root: string) {
   const rel = (filePath: string) => path.relative(root, filePath);
 

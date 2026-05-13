@@ -57,7 +57,22 @@ export function isSubChainDuplicate(
 }
 
 export function isOptionalAccess(node: ts.PropertyAccessExpression): boolean {
-  return node.questionDotToken !== undefined;
+  if (node.questionDotToken !== undefined) {
+    return true;
+  }
+
+  let current: ts.Node = node;
+  while (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) {
+    if (ts.isPropertyAccessExpression(current) && current.questionDotToken !== undefined) {
+      return true;
+    }
+    if (ts.isElementAccessExpression(current) && current.questionDotToken !== undefined) {
+      return true;
+    }
+    current = current.expression;
+  }
+
+  return false;
 }
 
 export function hasNonNullAssertion(node: ts.PropertyAccessExpression): boolean {

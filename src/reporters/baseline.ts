@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { c } from "../utils/colors.ts";
+import { normalizeFilePath, toProjectRelativePath } from "../utils/files.ts";
 import type { Baseline, CrashReport, ProgramResult } from "../utils/types.ts";
 
 export const BASELINE_FILE = ".safets-baseline.json";
@@ -15,7 +16,7 @@ export function saveBaseline(
     date: new Date().toISOString(),
     options: { includeTests: programResult.includeTests },
     crashes: crashes.map((crash) => ({
-      file: crash.file,
+      file: toProjectRelativePath(root, crash.file),
       line: crash.line,
       expr: crash.expr,
       pattern: crash.pattern,
@@ -47,9 +48,10 @@ export function loadBaseline(root: string): Baseline | null {
 }
 
 export function isNew(crash: CrashReport, baseline: Baseline): boolean {
+  const absoluteCrashPath = normalizeFilePath(crash.file);
   return !baseline.crashes.some(
     (entry) =>
-      entry.file === crash.file &&
+      (entry.file === absoluteCrashPath || entry.file === toProjectRelativePath(process.cwd(), crash.file)) &&
       entry.line === crash.line &&
       entry.expr === crash.expr,
   );

@@ -13,8 +13,14 @@ import {
   detectUnsafePromiseAllDestructuring,
   detectUnsafePropertyAccess,
 } from "./detectors/index.ts";
-import { findTsFiles, isTestFile } from "./utils/files.ts";
+import { findTsFiles, isAnalyzableTsFile, isTestFile, normalizeFilePath } from "./utils/files.ts";
 import type { CrashReport, ProgramResult } from "./utils/types.ts";
+
+function filterProgramFiles(fileNames: string[]): string[] {
+  return fileNames
+    .map((fileName) => normalizeFilePath(fileName))
+    .filter((fileName) => isAnalyzableTsFile(fileName));
+}
 
 function isCheckerUsable(program: ts.Program): boolean {
   try {
@@ -57,9 +63,10 @@ export function loadProgramRobust(
           ts.sys,
           path.dirname(configPath),
         );
+        const filteredFileNames = filterProgramFiles(fileNames);
 
-        if (fileNames.length > 0) {
-          const program = ts.createProgram(fileNames, {
+        if (filteredFileNames.length > 0) {
+          const program = ts.createProgram(filteredFileNames, {
             ...options,
             noEmit: true,
             skipLibCheck: true,
@@ -69,6 +76,11 @@ export function loadProgramRobust(
             if (errors.length > 0) {
               warnings.push(
                 `tsconfig has ${errors.length} issue(s) - analysis may be partial`,
+              );
+            }
+            if (filteredFileNames.length !== fileNames.length) {
+              warnings.push(
+                `Filtered ${fileNames.length - filteredFileNames.length} generated or bundled file(s) from tsconfig inputs`,
               );
             }
             return { program, fallback: false, warnings, includeTests };
@@ -127,6 +139,7 @@ function getUserSourceFiles(
           sf !== undefined &&
           !sf.isDeclarationFile &&
           !sf.fileName.includes("node_modules") &&
+          isAnalyzableTsFile(sf.fileName) &&
           (includeTests || !isTestFile(sf.fileName)),
       );
   } catch {
@@ -134,6 +147,7 @@ function getUserSourceFiles(
       (sf) =>
         !sf.isDeclarationFile &&
         !sf.fileName.includes("node_modules") &&
+        isAnalyzableTsFile(sf.fileName) &&
         (includeTests || !isTestFile(sf.fileName)),
     );
   }

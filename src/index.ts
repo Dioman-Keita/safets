@@ -2,7 +2,7 @@
 
 import { analyze, loadProgramRobust } from "./analyze.ts";
 import { checkBaselineOptionsMismatch, loadBaseline, saveBaseline } from "./reporters/baseline.ts";
-import { printDebt, printDoctor, printFix } from "./reporters/index.ts";
+import { printBaselineMismatchWarning, printDebt, printDoctor, printFix } from "./reporters/index.ts";
 import { c } from "./utils/colors.ts";
 
 const args = process.argv.slice(2);
@@ -27,6 +27,7 @@ const baselineMismatch = baseline
 
 switch (command) {
   case "debt":
+    printBaselineMismatchWarning(baselineMismatch);
     printDebt(crashes, baseline);
     break;
   case "fix":

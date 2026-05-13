@@ -3,9 +3,9 @@
   "version": "0.8.0",
   "description": "Finds common runtime crashes TypeScript can't detect",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "./bin/safets.js",
   "bin": {
-    "safets": "./src/index.ts"
+    "safets": "./bin/safets.js"
   },
   "scripts": {
     "doctor": "ts-node --esm src/index.ts doctor",
@@ -22,9 +22,11 @@
   ],
   "author": "",
   "license": "MIT",
+  "dependencies": {
+    "ts-node": "^10.9.0"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "ts-node": "^10.9.0",
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
