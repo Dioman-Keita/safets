@@ -1,26 +1,35 @@
 {
   "name": "safets",
-  "version": "0.6.0",
-  "description": "Detect the most common JavaScript runtime crash before it happens",
-  "main": "index.ts",
+  "version": "0.8.0",
+  "description": "Finds common runtime crashes TypeScript can't detect",
+  "type": "module",
+  "main": "./bin/safets.js",
+  "bin": {
+    "safets": "./bin/safets.js"
+  },
   "scripts": {
-    "doctor": "ts-node ./src/index.ts doctor",
-    "fix": "ts-node ./src/index.ts fix",
-    "debt": "ts-node ./src/index.ts debt",
-    "baseline": "ts-node ./src/index.ts baseline"
+    "doctor": "ts-node --esm src/index.ts doctor",
+    "fix": "ts-node --esm src/index.ts fix",
+    "debt": "ts-node --esm src/index.ts debt",
+    "baseline": "ts-node --esm src/index.ts baseline"
   },
   "keywords": [
     "typescript",
-    "runtime",
-    "crash",
     "static-analysis",
+    "runtime-crashes",
     "linter",
     "safety"
   ],
+  "author": "",
   "license": "MIT",
+  "dependencies": {
+    "ts-node": "^10.9.0"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "ts-node": "^10.0.0",
     "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=4.9.0"
   }
 }

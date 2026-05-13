@@ -1,100 +1,12 @@
 # SafeTS
 
-Detect the most common JavaScript runtime crash before it happens.
+**Finds common runtime crashes TypeScript can't detect.**
 
-SafeTS analyzes your TypeScript code and reports places where your app can crash at runtime — starting with `Cannot read properties of undefined`, the #1 production error in JavaScript.
-
----
-
-## Try it now
-
-No installation required. Run directly in any TypeScript project:
-
-```bash
-npx ts-node ./src/index.ts doctor
-```
-
----
-
-## Example output
+TypeScript catches type errors at compile time, but some crash patterns slip through even with `strict: true`. SafeTS uses the TypeScript Compiler API to detect them before they hit production.
 
 ```
-SafeTS Runtime Safety Report
-────────────────────────────
-3 potential crashes
-
-  src/api.ts
-
-  HIGH  Line 22:14  Unsafe property access
-    data.user.profile.name
-    type: User | undefined
-
-    Crash simulation:
-      → data.user → User | undefined
-      → data.user may be undefined at runtime
-      → data.user.profile → Cannot read properties of undefined (reading 'profile')
-
-  HIGH  Line 8:3  Unprotected JSON.parse
-    JSON.parse(rawConfig)
-
-    Crash simulation:
-      → JSON.parse(input) — throws SyntaxError if input is malformed
-      → Unhandled exception → process crash
+Cannot read properties of undefined (reading 'name')
 ```
-
----
-
-## Commands
-
-```bash
-npx ts-node ./src/index.ts doctor              # Scan project, show crash report
-npx ts-node ./src/index.ts fix                 # Show fix suggestions for each crash
-npx ts-node ./src/index.ts debt                # Crash count grouped by pattern
-npx ts-node ./src/index.ts baseline            # Record current state
-npx ts-node ./src/index.ts doctor --fail-on-new  # CI mode — block on new crashes only
-npx ts-node path/to/src/index.ts command # Generals rules
-```
-
----
-
-## What SafeTS detects
-
-| Pattern                          | Example                              | Error prevented                             |
-| -------------------------------- | ------------------------------------ | ------------------------------------------- |
-| Unsafe property access           | `user.profile.name`                  | `Cannot read properties of undefined`       |
-| Unsafe destructuring             | `const { name } = user`              | `Cannot destructure property of undefined`  |
-| Unsafe array index               | `arr[0].name`                        | `Cannot read properties of undefined`       |
-| Unprotected JSON.parse           | `JSON.parse(input)`                  | `SyntaxError: Unexpected token`             |
-| Unsafe process.env               | `process.env.KEY!`                   | Runtime crash on missing env var            |
-| Non-null assertion               | `value!.method()`                    | Crash silently bypassed by compiler         |
-| Unsafe access after await        | `await x(); value.prop`              | State mutation between narrowing and access |
-| Unsafe Promise.all destructuring | `const [a] = await Promise.all(...)` | Undefined element access                    |
-| Unsafe Map/Record access         | `map[key].value`                     | Key may not exist                           |
-
----
-
-## Why not just use TypeScript strict mode?
-
-TypeScript strict mode is a config option someone can forget to enable.
-SafeTS is a step in your CI that finds what TypeScript misses even with strict mode on.
-
-The key difference: TypeScript tells you a type _could_ be undefined.
-SafeTS simulates the exact path your code takes to crash.
-
----
-
-## CI integration
-
-```bash
-# Save current state as baseline
-npx ts-node ./src/index.ts baseline
-
-# In CI — only block on new crashes, not existing ones
-npx ts-node ./src/index.ts doctor --fail-on-new
-```
-
-Existing crashes are tracked in `.safets-baseline.json`.
-New code must be safe. Old crashes are visible as debt and tracked over time.
 
 ---
 
@@ -104,24 +16,79 @@ New code must be safe. Old crashes are visible as debt and tracked over time.
 npm install --save-dev typescript @types/node ts-node
 ```
 
----
-
-## Philosophy
-
-- Zero configuration — works on any TypeScript project
-- No compiler fork — built on the official TypeScript Compiler API
-- No TypeScript patches — does not modify your build pipeline
-- SafeTS never modifies your code or your TypeScript configuration
-- Graceful degradation — runs in fallback mode if the project does not compile cleanly
-- Precision over recall — only reports crashes it is confident about
+No additional dependencies. SafeTS uses the TypeScript compiler already in your project.
 
 ---
 
-## Status
+## Usage
 
-Early release — v0.6.
-Tested on real TypeScript projects.
-Feedback and bug reports welcome via GitHub Issues.
+```bash
+safets doctor
+safets doctor --include-tests
+safets fix
+safets debt
+safets baseline
+safets doctor --fail-on-new
+```
 
-The #1 JavaScript runtime error is preventable.
-SafeTS makes it visible before production.
+---
+
+## How It Works
+
+**SafeTS is read-only.** It never modifies your source code. `safets fix` only prints suggestions to stdout, and you apply them manually.
+
+SafeTS scans your TypeScript files using the Compiler API, builds a type-checked program, and walks the AST looking for patterns that TypeScript's own checker allows but that can still crash at runtime.
+
+Test files (`*.test.ts`, `*.spec.ts`, `/__tests__/`, and similar paths) are excluded by default. Use `--include-tests` to include them.
+
+Files over 5000 lines, such as compiled bundles or generated Prisma clients, are automatically skipped.
+
+---
+
+## The 9 Patterns
+
+| Pattern | Confidence | Example |
+| --- | --- | --- |
+| Unsafe property access | HIGH | `user.profile.name` when `user` is `User \| undefined` |
+| Unsafe destructuring | HIGH | `const { name } = user` when `user` is nullable |
+| Unsafe array index access | HIGH | `arr[0].name` when `arr[0]` may be `undefined` |
+| Unprotected JSON.parse | HIGH | `JSON.parse(input)` without `try/catch` |
+| Unsafe process.env access | HIGH | `process.env.API_KEY` used directly |
+| Non-null assertion on nullable | MEDIUM | `value!.method()` when `value` may be `undefined` |
+| Unsafe access after await | MEDIUM | narrowing becomes stale after an `await` boundary |
+| Unsafe Promise.all destructuring | MEDIUM | `const [a] = await Promise.all([...])` when result may be `undefined` |
+| Unsafe Map/Record access | HIGH | `map[key].value` when key may not exist |
+
+---
+
+## Baseline And CI
+
+The baseline system lets you track debt without blocking existing work.
+
+```bash
+safets baseline
+# creates .safets-baseline.json at the project root
+
+git add .safets-baseline.json
+git commit -m "chore: add SafeTS baseline"
+
+safets doctor --fail-on-new
+```
+
+`.safets-baseline.json` should be committed to version control so every teammate and CI job compares against the same snapshot.
+
+The baseline stores scan options such as `includeTests`. If you run `doctor --fail-on-new` with different options than the saved baseline, SafeTS will refuse the comparison and ask you to regenerate the baseline.
+
+### Debt Tracking
+
+```bash
+safets debt
+```
+
+When a baseline exists, `debt` shows the delta per category since the snapshot.
+
+---
+
+## License
+
+MIT
