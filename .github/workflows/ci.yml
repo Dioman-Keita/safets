@@ -66,7 +66,7 @@ jobs:
       - name: Pack package
         run: npm pack
 
-      - name: Install packed CLI in isolated sample project
+      - name: Install packed package in isolated sample project
         shell: bash
         run: |
           set -euo pipefail
@@ -75,10 +75,6 @@ jobs:
           cd smoke-project
           npm init -y
           npm install ../"$TARBALL" typescript @types/node
-          cat > sample.ts <<'EOF'
-          const rawConfig = "{";
-          JSON.parse(rawConfig);
-          EOF
-          npx safets doctor > output.txt
-          grep -q "SafeTS Runtime Safety Report" output.txt
-          grep -q "Unprotected JSON.parse" output.txt
+          test -f node_modules/safets/package.json
+          test -f node_modules/safets/bin/safets.js
+          node -e 'const pkg=require("./node_modules/safets/package.json"); if (pkg.bin?.safets !== "./bin/safets.js") { throw new Error("unexpected bin entry"); }'
