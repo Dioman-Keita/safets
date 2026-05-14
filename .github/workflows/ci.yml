@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [20, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Smoke test CLI
+        run: npm test
+
+      - name: Verify npm package contents
+        run: npm run pack:check
+
+  package-smoke:
+    name: Package smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pack package
+        run: npm pack
+
+      - name: Install packed CLI in isolated sample project
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARBALL="$(ls safets-*.tgz)"
+          mkdir smoke-project
+          cd smoke-project
+          npm init -y >/dev/null 2>&1
+          npm install ../"$TARBALL" typescript @types/node >/dev/null 2>&1
+          cat > sample.ts <<'EOF'
+          const rawConfig = "{";
+          JSON.parse(rawConfig);
+          EOF
+          npx safets doctor > output.txt
+          grep -q "SafeTS Runtime Safety Report" output.txt
+          grep -q "Unprotected JSON.parse" output.txt
