@@ -13,10 +13,10 @@ Cannot read properties of undefined (reading 'name')
 ## Install
 
 ```bash
-npm install --save-dev typescript @types/node ts-node
+npm install --save-dev safets typescript
 ```
 
-No additional dependencies. SafeTS uses the TypeScript compiler already in your project.
+No runtime TypeScript loader is required. SafeTS uses the TypeScript compiler already in your project.
 
 ---
 
