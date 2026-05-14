@@ -92,3 +92,7 @@ When a baseline exists, `debt` shows the delta per category since the snapshot.
 ## License
 
 MIT
+
+## Roadmap
+
+The launch plan is tracked in [ROADMAP.md](./ROADMAP.md).
