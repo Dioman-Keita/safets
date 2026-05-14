@@ -7,16 +7,17 @@ const blockedPatterns = [
   /^ROADMAP\.md$/,
 ];
 
-const output =
-  process.platform === "win32"
-    ? execFileSync(
-        process.env.ComSpec ?? "cmd.exe",
-        ["/d", "/s", "/c", "npm.cmd pack --dry-run --json"],
-        { encoding: "utf8" },
-      )
-    : execFileSync("npm", ["pack", "--dry-run", "--json"], {
-        encoding: "utf8",
-      });
+const npmExecPath = process.env.npm_execpath;
+
+if (!npmExecPath) {
+  throw new Error("npm_execpath is not available; run this script through npm.");
+}
+
+const output = execFileSync(
+  process.execPath,
+  [npmExecPath, "pack", "--dry-run", "--json"],
+  { encoding: "utf8" },
+);
 
 const parsed = JSON.parse(output);
 const packResult = Array.isArray(parsed) ? parsed[0] : parsed;

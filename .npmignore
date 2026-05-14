@@ -2,3 +2,5 @@
 .safets-baseline.json
 files.zip
 ROADMAP.md
+scripts/
+tsconfig.json
