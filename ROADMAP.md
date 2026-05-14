@@ -25,11 +25,11 @@ Exit criteria:
 Scope:
 
 - Ship compiled JS output in `dist/`
-- Point the package `bin` to a compiled JS entrypoint
-- Remove `ts-node` as a runtime requirement for end users
+- Update package.json `bin`, `main`, and scripts to use the compiled entrypoint
+- Move `ts-node` to `devDependencies` to remove it as a runtime requirement
 - Add publish controls with `files` or `.npmignore`
 - Add CLI help/version support
-- Add detector and CLI integration tests
+- Add detector and CLI integration tests and a standard `test` script
 
 Tracked issues:
 
