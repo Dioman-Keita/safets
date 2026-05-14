@@ -2,7 +2,7 @@
 
 Detect the most common JavaScript runtime crash before it happens.
 
-SafeTS analyzes your TypeScript code and reports places where your app can crash at runtime — starting with `Cannot read properties of undefined`, the #1 production error in JavaScript.
+SafeTS analyzes your TypeScript code and reports places where your app can crash at runtime - starting with `Cannot read properties of undefined`, the #1 production error in JavaScript.
 
 ---
 
@@ -20,7 +20,7 @@ npx ts-node ./src/index.ts doctor
 
 ```
 SafeTS Runtime Safety Report
-────────────────────────────
+----------------------------
 3 potential crashes
 
   src/api.ts
@@ -30,16 +30,16 @@ SafeTS Runtime Safety Report
     type: User | undefined
 
     Crash simulation:
-      → data.user → User | undefined
-      → data.user may be undefined at runtime
-      → data.user.profile → Cannot read properties of undefined (reading 'profile')
+      -> data.user -> User | undefined
+      -> data.user may be undefined at runtime
+      -> data.user.profile -> Cannot read properties of undefined (reading 'profile')
 
   HIGH  Line 8:3  Unprotected JSON.parse
     JSON.parse(rawConfig)
 
     Crash simulation:
-      → JSON.parse(input) — throws SyntaxError if input is malformed
-      → Unhandled exception → process crash
+      -> JSON.parse(input) - throws SyntaxError if input is malformed
+      -> Unhandled exception -> process crash
 ```
 
 ---
@@ -47,12 +47,12 @@ SafeTS Runtime Safety Report
 ## Commands
 
 ```bash
-npx ts-node ./src/index.ts doctor              # Scan project, show crash report
-npx ts-node ./src/index.ts fix                 # Show fix suggestions for each crash
-npx ts-node ./src/index.ts debt                # Crash count grouped by pattern
-npx ts-node ./src/index.ts baseline            # Record current state
-npx ts-node ./src/index.ts doctor --fail-on-new  # CI mode — block on new crashes only
-npx ts-node path/to/src/index.ts command # Generals rules
+npx ts-node ./src/index.ts doctor                 # Scan project, show crash report
+npx ts-node ./src/index.ts fix                    # Show fix suggestions for each crash
+npx ts-node ./src/index.ts debt                   # Crash count grouped by pattern
+npx ts-node ./src/index.ts baseline               # Record current state
+npx ts-node ./src/index.ts doctor --fail-on-new   # CI mode - block on new crashes only
+npx ts-node path/to/src/index.ts command          # General rules
 ```
 
 ---
@@ -89,7 +89,7 @@ SafeTS simulates the exact path your code takes to crash.
 # Save current state as baseline
 npx ts-node ./src/index.ts baseline
 
-# In CI — only block on new crashes, not existing ones
+# In CI - only block on new crashes, not existing ones
 npx ts-node ./src/index.ts doctor --fail-on-new
 ```
 
@@ -108,20 +108,24 @@ npm install --save-dev typescript @types/node ts-node
 
 ## Philosophy
 
-- Zero configuration — works on any TypeScript project
-- No compiler fork — built on the official TypeScript Compiler API
-- No TypeScript patches — does not modify your build pipeline
+- Zero configuration - works on any TypeScript project
+- No compiler fork - built on the official TypeScript Compiler API
+- No TypeScript patches - does not modify your build pipeline
 - SafeTS never modifies your code or your TypeScript configuration
-- Graceful degradation — runs in fallback mode if the project does not compile cleanly
-- Precision over recall — only reports crashes it is confident about
+- Graceful degradation - runs in fallback mode if the project does not compile cleanly
+- Precision over recall - only reports crashes it is confident about
 
 ---
 
 ## Status
 
-Early release — v0.6.
+Early release - v0.6.
 Tested on real TypeScript projects.
 Feedback and bug reports welcome via GitHub Issues.
 
 The #1 JavaScript runtime error is preventable.
 SafeTS makes it visible before production.
+
+## Roadmap
+
+The launch plan is tracked in [ROADMAP.md](./ROADMAP.md).
