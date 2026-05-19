@@ -82,5 +82,5 @@ jobs:
           npm init -y
           npm install ../"$TARBALL" typescript @types/node
           test -f node_modules/safets/package.json
-          test -f node_modules/safets/bin/safets.js
-          node -e 'const pkg=require("./node_modules/safets/package.json"); if (pkg.bin?.safets !== "./bin/safets.js") { throw new Error("unexpected bin entry"); }'
+          test -f node_modules/safets/dist/index.js
+          node -e 'const pkg=require("./node_modules/safets/package.json"); if (pkg.bin?.safets !== "./dist/index.js") { throw new Error("unexpected bin entry"); }'
