@@ -84,3 +84,10 @@ jobs:
           test -f node_modules/safets/package.json
           test -f node_modules/safets/dist/index.js
           node -e 'const pkg=require("./node_modules/safets/package.json"); if (pkg.bin?.safets !== "./dist/index.js") { throw new Error("unexpected bin entry"); }'
+          cat > sample.ts <<'EOF'
+          const rawConfig = "{";
+          JSON.parse(rawConfig);
+          EOF
+          npx safets doctor > output.txt
+          grep -q "SafeTS Runtime Safety Report" output.txt
+          grep -q "Unprotected JSON.parse" output.txt
