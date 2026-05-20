@@ -5,6 +5,11 @@ import { spawnSync } from "node:child_process";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const cliEntrypoint = path.join(repoRoot, "dist", "index.js");
+const packageJson = JSON.parse(
+  fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+);
+const packageVersion = packageJson.version;
+const tempDirs = new Set();
 
 function stripAnsi(text) {
   return text.replace(/\x1b\[[0-9;]*m/g, "");
@@ -26,10 +31,18 @@ function assert(condition, message, details) {
 
 function createProject(files) {
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "safets-cli-"));
+  tempDirs.add(projectDir);
   for (const [fileName, content] of Object.entries(files)) {
     fs.writeFileSync(path.join(projectDir, fileName), content);
   }
   return projectDir;
+}
+
+function cleanupTempDirs() {
+  for (const dir of tempDirs) {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  tempDirs.clear();
 }
 
 function testHelp() {
@@ -41,13 +54,10 @@ function testHelp() {
 }
 
 function testVersion() {
-  const packageJson = JSON.parse(
-    fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
-  );
   const result = runCli(["--version"]);
   const output = stripAnsi(`${result.stdout}${result.stderr}`).trim();
   assert(result.status === 0, "Expected --version to exit with code 0", output);
-  assert(output === packageJson.version, "Expected --version to print package version", output);
+  assert(output === packageVersion, "Expected --version to print package version", output);
 }
 
 function testUnknownCommand() {
@@ -57,12 +67,19 @@ function testUnknownCommand() {
   assert(output.includes("Unknown command: wat"), "Expected unknown command message", output);
 }
 
+function testHelpRejectsUnknownOptions() {
+  const result = runCli(["--help", "--bogus"]);
+  const output = stripAnsi(`${result.stdout}${result.stderr}`);
+  assert(result.status === 1, "Expected --help with an unknown option to exit with code 1", output);
+  assert(output.includes("Unknown option(s): --bogus"), "Expected unknown option message", output);
+}
+
 function testFailOnNew() {
   const projectDir = createProject({
     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
     "app.ts": "const user: { name: string } | undefined = undefined;\nconsole.log(user.name);\n",
     ".safets-baseline.json": JSON.stringify({
-      version: "0.8.0",
+      version: packageVersion,
       date: new Date().toISOString(),
       options: { includeTests: false },
       crashes: [],
@@ -80,7 +97,7 @@ function testMismatchFailOnNew() {
     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
     "app.ts": "const user: { name: string } | undefined = undefined;\nconsole.log(user.name);\n",
     ".safets-baseline.json": JSON.stringify({
-      version: "0.8.0",
+      version: packageVersion,
       date: new Date().toISOString(),
       options: { includeTests: true },
       crashes: [],
@@ -100,11 +117,15 @@ function testInvalidFlagCombination() {
   assert(output.includes("`--fail-on-new` can only be used with `doctor`"), "Expected invalid flag combination message", output);
 }
 
-testHelp();
-testVersion();
-testUnknownCommand();
-testFailOnNew();
-testMismatchFailOnNew();
-testInvalidFlagCombination();
-
-console.log("CLI contract checks passed.");
+try {
+  testHelp();
+  testVersion();
+  testUnknownCommand();
+  testHelpRejectsUnknownOptions();
+  testFailOnNew();
+  testMismatchFailOnNew();
+  testInvalidFlagCombination();
+  console.log("CLI contract checks passed.");
+} finally {
+  cleanupTempDirs();
+}

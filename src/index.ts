@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import path from "path";
 import { createRequire } from "module";
 import { analyze, loadProgramRobust } from "./analyze.ts";
 import { checkBaselineOptionsMismatch, loadBaseline, saveBaseline } from "./reporters/baseline.ts";
@@ -54,6 +53,13 @@ const args = process.argv.slice(2);
 const version = getVersion();
 const root = process.cwd();
 
+const unknownFlags = args.filter((arg) => arg.startsWith("-") && !FLAGS.has(arg));
+if (unknownFlags.length > 0) {
+  console.error(c.red(`x Unknown option(s): ${unknownFlags.join(", ")}\n`));
+  printHelp(version);
+  process.exit(1);
+}
+
 if (args.includes("--help") || args[0] === "help") {
   printHelp(version);
   process.exit(0);
@@ -69,13 +75,6 @@ const command = nonFlagArgs[0] ?? "doctor";
 
 if (!COMMANDS.has(command)) {
   console.error(c.red(`x Unknown command: ${command}\n`));
-  printHelp(version);
-  process.exit(1);
-}
-
-const unknownFlags = args.filter((arg) => arg.startsWith("-") && !FLAGS.has(arg));
-if (unknownFlags.length > 0) {
-  console.error(c.red(`x Unknown option(s): ${unknownFlags.join(", ")}\n`));
   printHelp(version);
   process.exit(1);
 }
