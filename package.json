@@ -8,6 +8,11 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:smoke",
+    "test:smoke": "node ./dist/index.js doctor",
+    "pack:check": "node scripts/check-pack.mjs",
+    "ci:check": "npm run typecheck && npm test && npm run pack:check",
     "doctor": "node ./dist/index.js doctor",
     "fix": "node ./dist/index.js fix",
     "debt": "node ./dist/index.js debt",
