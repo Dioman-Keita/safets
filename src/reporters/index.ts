@@ -110,15 +110,20 @@ export function printDoctor(
   }
 }
 
-export function printDebt(crashes: CrashReport[], base: Baseline | null) {
+export function printDebt(
+  crashes: CrashReport[],
+  base: Baseline | null,
+  baselineMismatch: string | null,
+) {
+  const comparableBase = baselineMismatch ? null : base;
   const currentCounts = new Map<PatternName, number>();
   for (const crash of crashes) {
     currentCounts.set(crash.pattern, (currentCounts.get(crash.pattern) ?? 0) + 1);
   }
 
   const baselineCounts = new Map<PatternName, number>();
-  if (base) {
-    for (const entry of base.crashes) {
+  if (comparableBase) {
+    for (const entry of comparableBase.crashes) {
       if (entry.pattern) {
         baselineCounts.set(entry.pattern, (baselineCounts.get(entry.pattern) ?? 0) + 1);
       }
@@ -135,7 +140,7 @@ export function printDebt(crashes: CrashReport[], base: Baseline | null) {
 
   for (const pattern of patterns) {
     const currentCount = currentCounts.get(pattern) ?? 0;
-    if (!base) {
+    if (!comparableBase) {
       console.log(`  ${pattern.padEnd(40)} ${c.red(String(currentCount))}`);
       continue;
     }
@@ -154,8 +159,8 @@ export function printDebt(crashes: CrashReport[], base: Baseline | null) {
 
   console.log(c.dim("-".repeat(50)));
   const total = crashes.length;
-  if (base) {
-    const delta = total - base.crashes.length;
+  if (comparableBase) {
+    const delta = total - comparableBase.crashes.length;
     let deltaText = c.dim(" (same as baseline)");
     if (delta > 0) {
       deltaText = c.red(` (+${delta} since baseline)`);
@@ -165,7 +170,12 @@ export function printDebt(crashes: CrashReport[], base: Baseline | null) {
     console.log(`  ${"Total".padEnd(40)} ${c.red(String(total))}${deltaText}`);
   } else {
     console.log(`  ${"Total".padEnd(40)} ${c.red(String(total))}`);
-    console.log(c.dim("\n  Run 'safets baseline' to track debt over time."));
+    if (baselineMismatch) {
+      console.log(c.dim("\n  Showing current debt only because baseline comparison was skipped."));
+      console.log(c.dim("  Re-run 'safets baseline' with matching options to track debt deltas."));
+    } else {
+      console.log(c.dim("\n  Run 'safets baseline' to track debt over time."));
+    }
   }
   console.log();
 }

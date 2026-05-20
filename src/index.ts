@@ -28,7 +28,7 @@ const baselineMismatch = baseline
 switch (command) {
   case "debt":
     printBaselineMismatchWarning(baselineMismatch);
-    printDebt(crashes, baseline);
+    printDebt(crashes, baseline, baselineMismatch);
     break;
   case "fix":
     printFix(crashes, root);
