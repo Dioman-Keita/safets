@@ -20,6 +20,7 @@ export function printDoctor(
   baselineMismatch: string | null,
 ) {
   const rel = (filePath: string) => path.relative(root, filePath);
+  const comparableBase = baselineMismatch ? null : base;
 
   if (baselineMismatch) {
     console.log(c.yellow(`  ! Baseline mismatch: ${baselineMismatch}\n`));
@@ -47,14 +48,18 @@ export function printDoctor(
     return;
   }
 
-  const newCrashes = base ? crashes.filter((crash) => isNew(crash, base)) : crashes;
-  const knownCrashes = base ? crashes.filter((crash) => !isNew(crash, base)) : [];
+  const newCrashes = comparableBase
+    ? crashes.filter((crash) => isNew(crash, comparableBase))
+    : crashes;
+  const knownCrashes = comparableBase
+    ? crashes.filter((crash) => !isNew(crash, comparableBase))
+    : [];
   const fallbackCount = crashes.filter((crash) => crash.fallback).length;
 
   console.log(c.bold("SafeTS Runtime Safety Report"));
   console.log(c.dim("-".repeat(44)));
   console.log(
-    base
+    comparableBase
       ? `${crashes.length} potential crashes  (${c.red(`${newCrashes.length} new`)} · ${c.dim(`${knownCrashes.length} known`)})`
       : c.red(`${crashes.length} potential crashes`),
   );
@@ -79,8 +84,8 @@ export function printDoctor(
   for (const [file, list] of grouped) {
     console.log(c.cyan(`  ${file}`));
     for (const crash of list) {
-      const badge = base
-        ? isNew(crash, base)
+      const badge = comparableBase
+        ? isNew(crash, comparableBase)
           ? c.red(" [NEW]   ")
           : c.dim(" [known] ")
         : "";
