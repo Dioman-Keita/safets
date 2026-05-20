@@ -31,6 +31,13 @@ safets baseline
 safets doctor --fail-on-new
 ```
 
+Common flags:
+
+```bash
+safets --help
+safets --version
+```
+
 ---
 
 ## How It Works
@@ -86,6 +93,11 @@ safets debt
 ```
 
 When a baseline exists, `debt` shows the delta per category since the snapshot.
+
+## Exit Codes
+
+- `0`: successful run
+- `1`: invalid CLI usage, incompatible `doctor --fail-on-new` baseline, or new crashes found with `--fail-on-new`
 
 ---
 

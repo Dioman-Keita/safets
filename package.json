@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:smoke",
+    "test": "npm run test:smoke && npm run test:cli",
+    "test:cli": "node scripts/test-cli.mjs",
     "test:smoke": "node ./dist/index.js doctor",
     "pack:check": "node scripts/check-pack.mjs",
     "ci:check": "npm run typecheck && npm test && npm run pack:check",
