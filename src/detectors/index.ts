@@ -250,12 +250,24 @@ export function detectUnsafeEnvAccess(
   const results: CrashReport[] = [];
 
   function isSafelyDefaulted(node: ts.PropertyAccessExpression): boolean {
-    const parent = node.parent;
-    return (
+    let current: ts.Node = node;
+    while (ts.isParenthesizedExpression(current.parent)) {
+      current = current.parent;
+    }
+
+    let parent = current.parent;
+    while (
       ts.isBinaryExpression(parent) &&
-      parent.left === node &&
       parent.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
-    );
+    ) {
+      if (parent.left === current) {
+        return true;
+      }
+      current = parent;
+      parent = current.parent;
+    }
+
+    return false;
   }
 
   function visit(node: ts.Node) {
@@ -410,17 +422,15 @@ export function detectUnsafeAccessAfterAwait(
       }
 
       const thenStatement = node.thenStatement;
-      const firstThenStatement = ts.isBlock(thenStatement)
-        ? thenStatement.statements[0]
-        : undefined;
-      const isEarlyReturn =
-        (ts.isBlock(thenStatement) &&
-          thenStatement.statements.length === 1 &&
-          firstThenStatement !== undefined &&
-          ts.isReturnStatement(firstThenStatement)) ||
-        ts.isReturnStatement(thenStatement);
+      const isEarlyExit = (statement: ts.Statement): boolean =>
+        ts.isReturnStatement(statement) ||
+        ts.isThrowStatement(statement) ||
+        (ts.isBlock(statement) &&
+          statement.statements.some(
+            (child) => ts.isReturnStatement(child) || ts.isThrowStatement(child),
+          ));
 
-      if (!isEarlyReturn) {
+      if (!isEarlyExit(thenStatement)) {
         return null;
       }
 
@@ -448,6 +458,16 @@ export function detectUnsafeAccessAfterAwait(
       }
     }
 
+    function getTrackedEarlyReturnGuard(node: ts.IfStatement) {
+      const identifier = getEarlyReturnGuardIdentifier(node);
+      const varName = identifier?.getText();
+      if (!varName || !narrowedVarTypes.has(varName)) {
+        return null;
+      }
+
+      return varName;
+    }
+
     function collectNarrowings(node: ts.Node) {
       if (ts.isIfStatement(node)) {
         const guard = getNullableEarlyReturnGuard(node);
@@ -460,24 +480,16 @@ export function detectUnsafeAccessAfterAwait(
       ts.forEachChild(node, collectNarrowings);
     }
 
-    function findViolations(node: ts.Node) {
+    function findViolations(node: ts.Node, activeAfterAwait: Set<string>) {
       if (ts.isAwaitExpression(node)) {
-        narrowedVars.forEach((varName) => awaitedAfterNarrow.add(varName));
+        narrowedVars.forEach((varName) => activeAfterAwait.add(varName));
       }
 
-      if (ts.isIfStatement(node)) {
-        const identifier = getEarlyReturnGuardIdentifier(node);
-        const varName = identifier?.getText();
-        if (varName && awaitedAfterNarrow.has(varName)) {
-          awaitedAfterNarrow.delete(varName);
-        }
-      }
-
-      if (ts.isPropertyAccessExpression(node) && awaitedAfterNarrow.size > 0) {
+      if (ts.isPropertyAccessExpression(node) && activeAfterAwait.size > 0) {
         const root = getChainRoot(node.expression);
         if (
           ts.isIdentifier(root) &&
-          awaitedAfterNarrow.has(root.getText()) &&
+          activeAfterAwait.has(root.getText()) &&
           !isOptionalAccess(node) &&
           !hasNonNullAssertion(node) &&
           !isSubChainDuplicate(node, checker)
@@ -487,7 +499,7 @@ export function detectUnsafeAccessAfterAwait(
             const varName = root.getText();
             const originalType = narrowedVarTypes.get(varName);
             if (!originalType) {
-              ts.forEachChild(node, findViolations);
+              ts.forEachChild(node, (child) => findViolations(child, activeAfterAwait));
               return;
             }
             results.push({
@@ -512,11 +524,24 @@ export function detectUnsafeAccessAfterAwait(
         }
       }
 
-      ts.forEachChild(node, findViolations);
+      ts.forEachChild(node, (child) => findViolations(child, activeAfterAwait));
+    }
+
+    function findViolationsInBlock(block: ts.Block, activeAfterAwait = new Set<string>()) {
+      for (const statement of block.statements) {
+        if (ts.isIfStatement(statement)) {
+          const varName = getTrackedEarlyReturnGuard(statement);
+          if (varName && activeAfterAwait.has(varName)) {
+            activeAfterAwait.delete(varName);
+          }
+        }
+
+        findViolations(statement, activeAfterAwait);
+      }
     }
 
     collectNarrowings(body);
-    findViolations(body);
+    findViolationsInBlock(body);
   }
 
   function visit(node: ts.Node) {
