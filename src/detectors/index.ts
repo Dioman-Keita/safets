@@ -251,23 +251,34 @@ export function detectUnsafeEnvAccess(
 
   function isSafelyDefaulted(node: ts.PropertyAccessExpression): boolean {
     let current: ts.Node = node;
-    while (ts.isParenthesizedExpression(current.parent)) {
-      current = current.parent;
-    }
 
-    let parent = current.parent;
-    while (
-      ts.isBinaryExpression(parent) &&
-      parent.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
-    ) {
-      if (parent.left === current) {
-        return true;
+    while (true) {
+      while (ts.isParenthesizedExpression(current.parent)) {
+        current = current.parent;
       }
+
+      const parent = current.parent;
+      if (
+        !ts.isBinaryExpression(parent) ||
+        (parent.operatorToken.kind !== ts.SyntaxKind.QuestionQuestionToken &&
+          parent.operatorToken.kind !== ts.SyntaxKind.BarBarToken) ||
+        (parent.left !== current && parent.right !== current)
+      ) {
+        break;
+      }
+
       current = parent;
-      parent = current.parent;
     }
 
-    return false;
+    if (current === node) {
+      return false;
+    }
+
+    try {
+      return !isNullable(checker.getTypeAtLocation(current));
+    } catch {
+      return false;
+    }
   }
 
   function visit(node: ts.Node) {
@@ -388,7 +399,6 @@ export function detectUnsafeAccessAfterAwait(
 
   function analyzeFunction(body: ts.Block) {
     const narrowedVars = new Set<string>();
-    const awaitedAfterNarrow = new Set<string>();
     const narrowedVarTypes = new Map<string, string>();
 
     function getEarlyReturnGuardIdentifier(node: ts.IfStatement): ts.Identifier | null {
@@ -421,16 +431,20 @@ export function detectUnsafeAccessAfterAwait(
         return null;
       }
 
-      const thenStatement = node.thenStatement;
-      const isEarlyExit = (statement: ts.Statement): boolean =>
-        ts.isReturnStatement(statement) ||
-        ts.isThrowStatement(statement) ||
-        (ts.isBlock(statement) &&
+      const isEarlyExit = (statement: ts.Statement): boolean => {
+        if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) {
+          return true;
+        }
+
+        return (
+          ts.isBlock(statement) &&
           statement.statements.some(
             (child) => ts.isReturnStatement(child) || ts.isThrowStatement(child),
-          ));
+          )
+        );
+      };
 
-      if (!isEarlyExit(thenStatement)) {
+      if (!isEarlyExit(node.thenStatement)) {
         return null;
       }
 
@@ -481,6 +495,11 @@ export function detectUnsafeAccessAfterAwait(
     }
 
     function findViolations(node: ts.Node, activeAfterAwait: Set<string>) {
+      if (ts.isBlock(node)) {
+        findViolationsInBlock(node, new Set(activeAfterAwait));
+        return;
+      }
+
       if (ts.isAwaitExpression(node)) {
         narrowedVars.forEach((varName) => activeAfterAwait.add(varName));
       }
