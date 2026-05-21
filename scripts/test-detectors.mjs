@@ -39,6 +39,7 @@ const safeFiles = [
   "safe-process-env-access.ts",
   "safe-non-null-assertion.ts",
   "safe-access-after-await.ts",
+  "safe-nonnullable-guard-after-await.ts",
   "safe-promise-all-destructuring.ts",
   "safe-map-record-access.ts",
 ];

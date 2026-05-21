@@ -379,66 +379,81 @@ export function detectUnsafeAccessAfterAwait(
     const awaitedAfterNarrow = new Set<string>();
     const narrowedVarTypes = new Map<string, string>();
 
+    function getEarlyReturnGuardIdentifier(node: ts.IfStatement): ts.Identifier | null {
+      const condition = node.expression;
+      let identifier: ts.Identifier | null = null;
+
+      if (
+        ts.isPrefixUnaryExpression(condition) &&
+        condition.operator === ts.SyntaxKind.ExclamationToken &&
+        ts.isIdentifier(condition.operand)
+      ) {
+        identifier = condition.operand;
+      }
+
+      if (ts.isBinaryExpression(condition)) {
+        const op = condition.operatorToken.kind;
+        if (
+          (op === ts.SyntaxKind.EqualsEqualsEqualsToken ||
+            op === ts.SyntaxKind.EqualsEqualsToken) &&
+          ts.isIdentifier(condition.left)
+        ) {
+          const right = condition.right.getText();
+          if (right === "null" || right === "undefined") {
+            identifier = condition.left;
+          }
+        }
+      }
+
+      if (!identifier) {
+        return null;
+      }
+
+      const thenStatement = node.thenStatement;
+      const firstThenStatement = ts.isBlock(thenStatement)
+        ? thenStatement.statements[0]
+        : undefined;
+      const isEarlyReturn =
+        (ts.isBlock(thenStatement) &&
+          thenStatement.statements.length === 1 &&
+          firstThenStatement !== undefined &&
+          ts.isReturnStatement(firstThenStatement)) ||
+        ts.isReturnStatement(thenStatement);
+
+      if (!isEarlyReturn) {
+        return null;
+      }
+
+      return identifier;
+    }
+
+    function getNullableEarlyReturnGuard(node: ts.IfStatement) {
+      const identifier = getEarlyReturnGuardIdentifier(node);
+      if (!identifier) {
+        return null;
+      }
+
+      try {
+        const type = checker.getTypeAtLocation(identifier);
+        if (!isNullable(type)) {
+          return null;
+        }
+
+        return {
+          varName: identifier.getText(),
+          type: checker.typeToString(type),
+        };
+      } catch {
+        return null;
+      }
+    }
+
     function collectNarrowings(node: ts.Node) {
       if (ts.isIfStatement(node)) {
-        const condition = node.expression;
-        let varName: string | null = null;
-        let originalType: string | null = null;
-
-        if (
-          ts.isPrefixUnaryExpression(condition) &&
-          condition.operator === ts.SyntaxKind.ExclamationToken &&
-          ts.isIdentifier(condition.operand)
-        ) {
-          varName = condition.operand.getText();
-          try {
-            originalType = checker.typeToString(
-              checker.getTypeAtLocation(condition.operand),
-            );
-          } catch {
-            originalType = null;
-          }
-        }
-
-        if (ts.isBinaryExpression(condition)) {
-          const op = condition.operatorToken.kind;
-          if (
-            (op === ts.SyntaxKind.EqualsEqualsEqualsToken ||
-              op === ts.SyntaxKind.EqualsEqualsToken) &&
-            ts.isIdentifier(condition.left)
-          ) {
-            const right = condition.right.getText();
-            if (right === "null" || right === "undefined") {
-              varName = condition.left.getText();
-              try {
-                originalType = checker.typeToString(
-                  checker.getTypeAtLocation(condition.left),
-                );
-              } catch {
-                originalType = null;
-              }
-            }
-          }
-        }
-
-        if (varName) {
-          const thenStatement = node.thenStatement;
-          const firstThenStatement = ts.isBlock(thenStatement)
-            ? thenStatement.statements[0]
-            : undefined;
-          const isEarlyReturn =
-            (ts.isBlock(thenStatement) &&
-              thenStatement.statements.length === 1 &&
-              firstThenStatement !== undefined &&
-              ts.isReturnStatement(firstThenStatement)) ||
-            ts.isReturnStatement(thenStatement);
-
-          if (isEarlyReturn) {
-            narrowedVars.add(varName);
-            if (originalType) {
-              narrowedVarTypes.set(varName, originalType);
-            }
-          }
+        const guard = getNullableEarlyReturnGuard(node);
+        if (guard) {
+          narrowedVars.add(guard.varName);
+          narrowedVarTypes.set(guard.varName, guard.type);
         }
       }
 
@@ -448,6 +463,14 @@ export function detectUnsafeAccessAfterAwait(
     function findViolations(node: ts.Node) {
       if (ts.isAwaitExpression(node)) {
         narrowedVars.forEach((varName) => awaitedAfterNarrow.add(varName));
+      }
+
+      if (ts.isIfStatement(node)) {
+        const identifier = getEarlyReturnGuardIdentifier(node);
+        const varName = identifier?.getText();
+        if (varName && awaitedAfterNarrow.has(varName)) {
+          awaitedAfterNarrow.delete(varName);
+        }
       }
 
       if (ts.isPropertyAccessExpression(node) && awaitedAfterNarrow.size > 0) {
@@ -462,7 +485,11 @@ export function detectUnsafeAccessAfterAwait(
           try {
             const { line, col } = pos(sf, node);
             const varName = root.getText();
-            const originalType = narrowedVarTypes.get(varName) ?? "possibly nullable";
+            const originalType = narrowedVarTypes.get(varName);
+            if (!originalType) {
+              ts.forEachChild(node, findViolations);
+              return;
+            }
             results.push({
               file: sf.fileName,
               line,
