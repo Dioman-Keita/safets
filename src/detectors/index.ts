@@ -249,12 +249,22 @@ export function detectUnsafeEnvAccess(
 ): CrashReport[] {
   const results: CrashReport[] = [];
 
+  function isSafelyDefaulted(node: ts.PropertyAccessExpression): boolean {
+    const parent = node.parent;
+    return (
+      ts.isBinaryExpression(parent) &&
+      parent.left === node &&
+      parent.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+    );
+  }
+
   function visit(node: ts.Node) {
     if (
       ts.isPropertyAccessExpression(node) &&
       ts.isPropertyAccessExpression(node.expression) &&
       node.expression.expression.getText() === "process" &&
-      node.expression.name.getText() === "env"
+      node.expression.name.getText() === "env" &&
+      !isSafelyDefaulted(node)
     ) {
       try {
         const envVar = node.name.getText();
@@ -367,11 +377,13 @@ export function detectUnsafeAccessAfterAwait(
   function analyzeFunction(body: ts.Block) {
     const narrowedVars = new Set<string>();
     const awaitedAfterNarrow = new Set<string>();
+    const narrowedVarTypes = new Map<string, string>();
 
     function collectNarrowings(node: ts.Node) {
       if (ts.isIfStatement(node)) {
         const condition = node.expression;
         let varName: string | null = null;
+        let originalType: string | null = null;
 
         if (
           ts.isPrefixUnaryExpression(condition) &&
@@ -379,6 +391,13 @@ export function detectUnsafeAccessAfterAwait(
           ts.isIdentifier(condition.operand)
         ) {
           varName = condition.operand.getText();
+          try {
+            originalType = checker.typeToString(
+              checker.getTypeAtLocation(condition.operand),
+            );
+          } catch {
+            originalType = null;
+          }
         }
 
         if (ts.isBinaryExpression(condition)) {
@@ -391,6 +410,13 @@ export function detectUnsafeAccessAfterAwait(
             const right = condition.right.getText();
             if (right === "null" || right === "undefined") {
               varName = condition.left.getText();
+              try {
+                originalType = checker.typeToString(
+                  checker.getTypeAtLocation(condition.left),
+                );
+              } catch {
+                originalType = null;
+              }
             }
           }
         }
@@ -409,6 +435,9 @@ export function detectUnsafeAccessAfterAwait(
 
           if (isEarlyReturn) {
             narrowedVars.add(varName);
+            if (originalType) {
+              narrowedVarTypes.set(varName, originalType);
+            }
           }
         }
       }
@@ -431,27 +460,25 @@ export function detectUnsafeAccessAfterAwait(
           !isSubChainDuplicate(node, checker)
         ) {
           try {
-            const originalType = checker.getTypeAtLocation(root);
-            if (isNullable(originalType)) {
-              const { line, col } = pos(sf, node);
-              const varName = root.getText();
-              results.push({
-                file: sf.fileName,
-                line,
-                col,
-                expr: node.getText(),
-                rootExpr: varName,
-                type: checker.typeToString(originalType),
-                pattern: "Unsafe access after await",
-                confidence: "MEDIUM",
-                crashPath: [
-                  `${varName} narrowed from ${checker.typeToString(originalType)} to defined`,
-                  "await suspended execution - external state may have changed",
-                  `${varName} may be undefined again after resuming`,
-                  `${node.getText()} -> Cannot read properties of undefined`,
-                ],
-              });
-            }
+            const { line, col } = pos(sf, node);
+            const varName = root.getText();
+            const originalType = narrowedVarTypes.get(varName) ?? "possibly nullable";
+            results.push({
+              file: sf.fileName,
+              line,
+              col,
+              expr: node.getText(),
+              rootExpr: varName,
+              type: originalType,
+              pattern: "Unsafe access after await",
+              confidence: "MEDIUM",
+              crashPath: [
+                `${varName} narrowed from ${originalType} to defined`,
+                "await suspended execution - external state may have changed",
+                `${varName} may be undefined again after resuming`,
+                `${node.getText()} -> Cannot read properties of undefined`,
+              ],
+            });
           } catch {
             // Ignore nodes where type resolution fails.
           }
