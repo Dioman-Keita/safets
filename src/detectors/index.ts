@@ -264,8 +264,7 @@ export function detectUnsafeEnvAccess(
       if (
         !ts.isBinaryExpression(parent) ||
         (parent.operatorToken.kind !== ts.SyntaxKind.QuestionQuestionToken &&
-          parent.operatorToken.kind !== ts.SyntaxKind.BarBarToken) ||
-        (parent.left !== current && parent.right !== current)
+          parent.operatorToken.kind !== ts.SyntaxKind.BarBarToken)
       ) {
         break;
       }
@@ -537,6 +536,7 @@ export function detectUnsafeAccessAfterAwait(
 
     function findViolations(node: ts.Node, activeAfterAwait: Set<string>) {
       if (isFunctionLike(node)) {
+        ts.forEachChild(node, (child) => findViolations(child, new Set(activeAfterAwait)));
         return;
       }
 
@@ -553,11 +553,6 @@ export function detectUnsafeAccessAfterAwait(
       }
 
       const safeAssignmentTarget = getSafeAssignmentTarget(node);
-      if (safeAssignmentTarget) {
-        narrowedVars.delete(safeAssignmentTarget);
-        narrowedVarTypes.delete(safeAssignmentTarget);
-        activeAfterAwait.delete(safeAssignmentTarget);
-      }
 
       if (ts.isAwaitExpression(node)) {
         narrowedVars.forEach((varName) => activeAfterAwait.add(varName));
@@ -607,18 +602,24 @@ export function detectUnsafeAccessAfterAwait(
       }
 
       ts.forEachChild(node, (child) => findViolations(child, activeAfterAwait));
+
+      if (safeAssignmentTarget) {
+        narrowedVars.delete(safeAssignmentTarget);
+        narrowedVarTypes.delete(safeAssignmentTarget);
+        activeAfterAwait.delete(safeAssignmentTarget);
+      }
     }
 
     function findViolationsInBlock(block: ts.Block, activeAfterAwait = new Set<string>()) {
       for (const statement of block.statements) {
+        findViolations(statement, activeAfterAwait);
+
         if (ts.isIfStatement(statement)) {
           const varName = getTrackedEarlyReturnGuard(statement);
           if (varName && activeAfterAwait.has(varName)) {
             activeAfterAwait.delete(varName);
           }
         }
-
-        findViolations(statement, activeAfterAwait);
       }
     }
 

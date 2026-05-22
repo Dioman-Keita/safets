@@ -33,6 +33,9 @@ const expectedPositiveFindings = [
   ["unsafe-after-await-conditional-exit-guard.ts", "Unsafe access after await"],
   ["unsafe-await-inside-conditional-block.ts", "Unsafe access after await"],
   ["unsafe-after-await-property-chain.ts", "Unsafe access after await"],
+  ["unsafe-assignment-rhs-after-await.ts", "Unsafe access after await"],
+  ["unsafe-guard-return-expression-after-await.ts", "Unsafe access after await"],
+  ["unsafe-closure-after-await.ts", "Unsafe access after await"],
   ["unsafe-promise-all-destructuring.ts", "Unsafe Promise.all destructuring"],
   ["unsafe-map-record-access.ts", "Unsafe Map/Record access"],
 ];
