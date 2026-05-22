@@ -249,11 +249,14 @@ export function detectUnsafeEnvAccess(
 ): CrashReport[] {
   const results: CrashReport[] = [];
 
-  function isSafelyDefaulted(node: ts.PropertyAccessExpression): boolean {
+  function isSafelyDefaulted(node: ts.Node): boolean {
     let current: ts.Node = node;
 
     while (true) {
-      while (ts.isParenthesizedExpression(current.parent)) {
+      while (
+        ts.isParenthesizedExpression(current.parent) ||
+        ts.isNonNullExpression(current.parent)
+      ) {
         current = current.parent;
       }
 
@@ -319,7 +322,8 @@ export function detectUnsafeEnvAccess(
       ts.isPropertyAccessExpression(node.expression) &&
       ts.isPropertyAccessExpression(node.expression.expression) &&
       node.expression.expression.expression.getText() === "process" &&
-      node.expression.expression.name.getText() === "env"
+      node.expression.expression.name.getText() === "env" &&
+      !isSafelyDefaulted(node)
     ) {
       const envVar = node.expression.name.getText();
       const { line, col } = pos(sf, node);
@@ -416,13 +420,20 @@ export function detectUnsafeAccessAfterAwait(
       if (ts.isBinaryExpression(condition)) {
         const op = condition.operatorToken.kind;
         if (
-          (op === ts.SyntaxKind.EqualsEqualsEqualsToken ||
-            op === ts.SyntaxKind.EqualsEqualsToken) &&
-          ts.isIdentifier(condition.left)
+          op === ts.SyntaxKind.EqualsEqualsEqualsToken ||
+          op === ts.SyntaxKind.EqualsEqualsToken
         ) {
-          const right = condition.right.getText();
-          if (right === "null" || right === "undefined") {
-            identifier = condition.left;
+          const left = condition.left;
+          const right = condition.right;
+          const leftText = left.getText();
+          const rightText = right.getText();
+          if (ts.isIdentifier(left) && (rightText === "null" || rightText === "undefined")) {
+            identifier = left;
+          } else if (
+            ts.isIdentifier(right) &&
+            (leftText === "null" || leftText === "undefined")
+          ) {
+            identifier = right;
           }
         }
       }
@@ -496,7 +507,14 @@ export function detectUnsafeAccessAfterAwait(
 
     function findViolations(node: ts.Node, activeAfterAwait: Set<string>) {
       if (ts.isBlock(node)) {
-        findViolationsInBlock(node, new Set(activeAfterAwait));
+        const beforeBlock = new Set(activeAfterAwait);
+        const blockState = new Set(activeAfterAwait);
+        findViolationsInBlock(node, blockState);
+        for (const varName of blockState) {
+          if (!beforeBlock.has(varName)) {
+            activeAfterAwait.add(varName);
+          }
+        }
         return;
       }
 
