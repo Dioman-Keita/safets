@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-const repoRoot = path.resolve(import.meta.dirname, "..");
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cliEntrypoint = path.join(repoRoot, "dist", "index.js");
 const fixtureProject = path.join(repoRoot, "cases", "cli-project");
 const tempDirs = new Set();

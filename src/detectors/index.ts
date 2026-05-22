@@ -251,12 +251,47 @@ export function detectUnsafeEnvAccess(
 
   function isSafelyDefaulted(node: ts.Node): boolean {
     let current: ts.Node = node;
+    let foundDefault = false;
+    let pendingNonNullWrappers: ts.NonNullExpression[] = [];
+    const allowedNonNullWrappers = new Set<ts.NonNullExpression>();
+
+    function isEnvAccess(candidate: ts.Node): boolean {
+      return (
+        ts.isPropertyAccessExpression(candidate) &&
+        ts.isPropertyAccessExpression(candidate.expression) &&
+        candidate.expression.expression.getText() === "process" &&
+        candidate.expression.name.getText() === "env"
+      );
+    }
+
+    function hasUnsafeEnvNonNullAssertion(candidate: ts.Node): boolean {
+      let unsafe = false;
+
+      function visit(child: ts.Node) {
+        if (
+          ts.isNonNullExpression(child) &&
+          isEnvAccess(child.expression) &&
+          !allowedNonNullWrappers.has(child)
+        ) {
+          unsafe = true;
+          return;
+        }
+
+        ts.forEachChild(child, visit);
+      }
+
+      visit(candidate);
+      return unsafe;
+    }
 
     while (true) {
       while (
         ts.isParenthesizedExpression(current.parent) ||
         ts.isNonNullExpression(current.parent)
       ) {
+        if (ts.isNonNullExpression(current.parent)) {
+          pendingNonNullWrappers.push(current.parent);
+        }
         current = current.parent;
       }
 
@@ -269,10 +304,18 @@ export function detectUnsafeEnvAccess(
         break;
       }
 
+      if (parent.left === current) {
+        if (ts.isNonNullExpression(current) && isEnvAccess(current.expression)) {
+          allowedNonNullWrappers.add(current);
+        }
+        pendingNonNullWrappers.forEach((wrapper) => allowedNonNullWrappers.add(wrapper));
+      }
+      pendingNonNullWrappers = [];
+      foundDefault = true;
       current = parent;
     }
 
-    if (current === node) {
+    if (!foundDefault || hasUnsafeEnvNonNullAssertion(current)) {
       return false;
     }
 
@@ -413,6 +456,15 @@ export function detectUnsafeAccessAfterAwait(
       );
     }
 
+    function isImmediatelyInvokedFunction(node: ts.Node): boolean {
+      let current: ts.Node = node;
+      while (ts.isParenthesizedExpression(current.parent)) {
+        current = current.parent;
+      }
+
+      return ts.isCallExpression(current.parent) && current.parent.expression === current;
+    }
+
     function getEarlyReturnGuardIdentifier(node: ts.IfStatement): ts.Identifier | null {
       const condition = node.expression;
       let identifier: ts.Identifier | null = null;
@@ -517,26 +569,24 @@ export function detectUnsafeAccessAfterAwait(
       ts.forEachChild(node, collectNarrowings);
     }
 
-    function getSafeAssignmentTarget(node: ts.Node): string | null {
+    function getAssignmentTarget(node: ts.Node): string | null {
       if (
         !ts.isBinaryExpression(node) ||
-        node.operatorToken.kind !== ts.SyntaxKind.FirstAssignment ||
+        node.operatorToken.kind < ts.SyntaxKind.FirstAssignment ||
+        node.operatorToken.kind > ts.SyntaxKind.LastAssignment ||
         !ts.isIdentifier(node.left)
       ) {
         return null;
       }
 
-      try {
-        const rightType = checker.getTypeAtLocation(node.right);
-        return isNullable(rightType) ? null : node.left.getText();
-      } catch {
-        return null;
-      }
+      return node.left.getText();
     }
 
     function findViolations(node: ts.Node, activeAfterAwait: Set<string>) {
       if (isFunctionLike(node)) {
-        ts.forEachChild(node, (child) => findViolations(child, new Set(activeAfterAwait)));
+        if (isImmediatelyInvokedFunction(node)) {
+          ts.forEachChild(node, (child) => findViolations(child, new Set(activeAfterAwait)));
+        }
         return;
       }
 
@@ -552,7 +602,7 @@ export function detectUnsafeAccessAfterAwait(
         return;
       }
 
-      const safeAssignmentTarget = getSafeAssignmentTarget(node);
+      const assignmentTarget = getAssignmentTarget(node);
 
       if (ts.isAwaitExpression(node)) {
         narrowedVars.forEach((varName) => activeAfterAwait.add(varName));
@@ -603,10 +653,10 @@ export function detectUnsafeAccessAfterAwait(
 
       ts.forEachChild(node, (child) => findViolations(child, activeAfterAwait));
 
-      if (safeAssignmentTarget) {
-        narrowedVars.delete(safeAssignmentTarget);
-        narrowedVarTypes.delete(safeAssignmentTarget);
-        activeAfterAwait.delete(safeAssignmentTarget);
+      if (assignmentTarget) {
+        narrowedVars.delete(assignmentTarget);
+        narrowedVarTypes.delete(assignmentTarget);
+        activeAfterAwait.delete(assignmentTarget);
       }
     }
 

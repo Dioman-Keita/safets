@@ -1,7 +1,7 @@
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const repoRoot = path.resolve(import.meta.dirname, "..");
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixturesRoot = path.join(repoRoot, "cases", "detectors-project");
 
 const { analyze, loadProgramRobust } = await import(
@@ -27,6 +27,7 @@ const expectedPositiveFindings = [
   ["unsafe-process-env-access.ts", "Unsafe process.env access"],
   ["unsafe-process-env-nullish-undefined.ts", "Unsafe process.env access"],
   ["unsafe-process-env-chain-without-default.ts", "Unsafe process.env access"],
+  ["unsafe-process-env-non-null-fallback.ts", "Unsafe process.env access"],
   ["non-null-assertion-on-nullable.ts", "Non-null assertion on nullable"],
   ["unsafe-access-after-await.ts", "Unsafe access after await"],
   ["unsafe-conditional-guard-after-await.ts", "Unsafe access after await"],
@@ -98,6 +99,16 @@ const propertyChainReports = withoutTests.filter(
 assert(
   propertyChainReports.length === 1,
   `Expected unsafe-after-await-property-chain.ts to report once, got ${propertyChainReports.length}`,
+);
+
+const uninvokedNestedAfterAwaitReports = withoutTests.filter(
+  (crash) =>
+    fileName(crash.file) === "safe-uninvoked-nested-function-after-await.ts" &&
+    crash.pattern === "Unsafe access after await",
+);
+assert(
+  uninvokedNestedAfterAwaitReports.length === 0,
+  "Expected uninvoked nested functions not to inherit after-await state",
 );
 
 console.log("Detector fixture checks passed.");
