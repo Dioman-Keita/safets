@@ -249,59 +249,71 @@ export function detectUnsafeEnvAccess(
 ): CrashReport[] {
   const results: CrashReport[] = [];
 
+  function isEnvAccess(candidate: ts.Node): candidate is ts.PropertyAccessExpression {
+    return (
+      ts.isPropertyAccessExpression(candidate) &&
+      ts.isPropertyAccessExpression(candidate.expression) &&
+      ts.isIdentifier(candidate.expression.expression) &&
+      candidate.expression.expression.text === "process" &&
+      ts.isIdentifier(candidate.expression.name) &&
+      candidate.expression.name.text === "env"
+    );
+  }
+
   function isSafelyDefaulted(node: ts.Node): boolean {
     let current: ts.Node = node;
     let foundDefault = false;
     let pendingNonNullWrappers: ts.NonNullExpression[] = [];
     const allowedNonNullWrappers = new Set<ts.NonNullExpression>();
 
-    function isEnvAccess(candidate: ts.Node): boolean {
-      return (
-        ts.isPropertyAccessExpression(candidate) &&
-        ts.isPropertyAccessExpression(candidate.expression) &&
-        candidate.expression.expression.getText() === "process" &&
-        candidate.expression.name.getText() === "env"
-      );
-    }
+    function containsEnvAccess(child: ts.Node): boolean {
+      let found = false;
 
-    function hasUnsafeEnvNonNullAssertion(candidate: ts.Node): boolean {
-      let unsafe = false;
-
-      function containsEnvAccess(child: ts.Node): boolean {
-        let found = false;
-
-        function visitEnv(candidate: ts.Node) {
-          if (isEnvAccess(candidate)) {
-            found = true;
-            return;
-          }
-
-          ts.forEachChild(candidate, visitEnv);
-        }
-
-        visitEnv(child);
-        return found;
-      }
-
-      function visit(child: ts.Node) {
-        if (
-          ts.isNonNullExpression(child) &&
-          containsEnvAccess(child.expression) &&
-          !allowedNonNullWrappers.has(child)
-        ) {
-          try {
-            unsafe = isNullable(checker.getTypeAtLocation(child.expression));
-          } catch {
-            unsafe = true;
-          }
+      function visitEnv(candidate: ts.Node) {
+        if (isEnvAccess(candidate)) {
+          found = true;
           return;
         }
 
-        ts.forEachChild(child, visit);
+        ts.forEachChild(candidate, visitEnv);
       }
 
-      visit(candidate);
-      return unsafe;
+      visitEnv(child);
+      return found;
+    }
+
+    function isUnsafeNonNullEnvExpression(candidate: ts.Node): boolean {
+      if (
+        !ts.isNonNullExpression(candidate) ||
+        !containsEnvAccess(candidate.expression) ||
+        allowedNonNullWrappers.has(candidate)
+      ) {
+        return false;
+      }
+
+      try {
+        return isNullable(checker.getTypeAtLocation(candidate.expression));
+      } catch {
+        return true;
+      }
+    }
+
+    function hasUnsafeEnvNonNullAssertionOnPath(start: ts.Node, root: ts.Node): boolean {
+      let candidate: ts.Node | undefined = start;
+
+      while (candidate) {
+        if (isUnsafeNonNullEnvExpression(candidate)) {
+          return true;
+        }
+
+        if (candidate === root) {
+          return false;
+        }
+
+        candidate = candidate.parent;
+      }
+
+      return false;
     }
 
     while (true) {
@@ -335,7 +347,7 @@ export function detectUnsafeEnvAccess(
       current = parent;
     }
 
-    if (!foundDefault || hasUnsafeEnvNonNullAssertion(current)) {
+    if (!foundDefault || hasUnsafeEnvNonNullAssertionOnPath(node, current)) {
       return false;
     }
 
@@ -348,10 +360,7 @@ export function detectUnsafeEnvAccess(
 
   function visit(node: ts.Node) {
     if (
-      ts.isPropertyAccessExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      node.expression.expression.getText() === "process" &&
-      node.expression.name.getText() === "env" &&
+      isEnvAccess(node) &&
       !isSafelyDefaulted(node)
     ) {
       try {
@@ -381,10 +390,7 @@ export function detectUnsafeEnvAccess(
 
     if (
       ts.isNonNullExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      ts.isPropertyAccessExpression(node.expression.expression) &&
-      node.expression.expression.expression.getText() === "process" &&
-      node.expression.expression.name.getText() === "env" &&
+      isEnvAccess(node.expression) &&
       !isSafelyDefaulted(node)
     ) {
       const envVar = node.expression.name.getText();
@@ -466,6 +472,8 @@ export function detectUnsafeAccessAfterAwait(
   function analyzeFunction(body: ts.Block) {
     const narrowedVars = new Set<string>();
     const narrowedVarTypes = new Map<string, string>();
+    const callableBodies = new Map<string, ts.ConciseBody>();
+    const callStack = new Set<string>();
 
     function isFunctionLike(node: ts.Node): boolean {
       return (
@@ -483,6 +491,31 @@ export function detectUnsafeAccessAfterAwait(
       }
 
       return ts.isCallExpression(current.parent) && current.parent.expression === current;
+    }
+
+    function collectCallableBodies(node: ts.Node) {
+      if (ts.isFunctionDeclaration(node)) {
+        if (node.name && node.body) {
+          callableBodies.set(node.name.text, node.body);
+        }
+        return;
+      }
+
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isIdentifier(node.name) &&
+        node.initializer &&
+        (ts.isFunctionExpression(node.initializer) || ts.isArrowFunction(node.initializer))
+      ) {
+        callableBodies.set(node.name.text, node.initializer.body);
+        return;
+      }
+
+      if (isFunctionLike(node)) {
+        return;
+      }
+
+      ts.forEachChild(node, collectCallableBodies);
     }
 
     function getEarlyReturnGuardIdentifier(node: ts.IfStatement): ts.Identifier | null {
@@ -602,6 +635,36 @@ export function detectUnsafeAccessAfterAwait(
       return node.left.getText();
     }
 
+    function isOutermostPropertyAccess(node: ts.PropertyAccessExpression): boolean {
+      return !(
+        ts.isPropertyAccessExpression(node.parent) &&
+        node.parent.questionDotToken === undefined
+      );
+    }
+
+    function analyzeCalledClosure(
+      name: string,
+      activeAfterAwait: Set<string>,
+      activeNarrowings: Set<string>,
+    ) {
+      const calledBody = callableBodies.get(name);
+      if (!calledBody || callStack.has(name)) {
+        return;
+      }
+
+      callStack.add(name);
+      if (ts.isBlock(calledBody)) {
+        findViolationsInBlock(
+          calledBody,
+          new Set(activeAfterAwait),
+          new Set(activeNarrowings),
+        );
+      } else {
+        findViolations(calledBody, new Set(activeAfterAwait), new Set(activeNarrowings));
+      }
+      callStack.delete(name);
+    }
+
     function findViolations(
       node: ts.Node,
       activeAfterAwait: Set<string>,
@@ -642,10 +705,7 @@ export function detectUnsafeAccessAfterAwait(
           !isOptionalAccess(node) &&
           !hasNonNullAssertion(node) &&
           !isSubChainDuplicate(node, checker) &&
-          !(
-            ts.isPropertyAccessExpression(node.parent) &&
-            node.parent.questionDotToken === undefined
-          )
+          isOutermostPropertyAccess(node)
         ) {
           try {
             const { line, col } = pos(sf, node);
@@ -679,6 +739,14 @@ export function detectUnsafeAccessAfterAwait(
         }
       }
 
+      if (
+        ts.isCallExpression(node) &&
+        ts.isIdentifier(node.expression) &&
+        activeAfterAwait.size > 0
+      ) {
+        analyzeCalledClosure(node.expression.text, activeAfterAwait, activeNarrowings);
+      }
+
       ts.forEachChild(node, (child) =>
         findViolations(child, activeAfterAwait, activeNarrowings),
       );
@@ -707,6 +775,7 @@ export function detectUnsafeAccessAfterAwait(
       }
     }
 
+    collectCallableBodies(body);
     collectNarrowings(body);
     findViolationsInBlock(body);
   }

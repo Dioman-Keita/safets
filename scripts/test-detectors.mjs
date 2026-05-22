@@ -38,6 +38,7 @@ const expectedPositiveFindings = [
   ["unsafe-assignment-rhs-after-await.ts", "Unsafe access after await"],
   ["unsafe-guard-return-expression-after-await.ts", "Unsafe access after await"],
   ["unsafe-closure-after-await.ts", "Unsafe access after await"],
+  ["unsafe-called-closure-after-await.ts", "Unsafe access after await"],
   ["unsafe-promise-all-destructuring.ts", "Unsafe Promise.all destructuring"],
   ["unsafe-map-record-access.ts", "Unsafe Map/Record access"],
 ];
@@ -111,6 +112,18 @@ const uninvokedNestedAfterAwaitReports = withoutTests.filter(
 assert(
   uninvokedNestedAfterAwaitReports.length === 0,
   "Expected uninvoked nested functions not to inherit after-await state",
+);
+
+const siblingFallbackReports = withoutTests.filter(
+  (crash) => fileName(crash.file) === "unsafe-process-env-non-null-fallback.ts",
+);
+assert(
+  siblingFallbackReports.some((crash) => crash.expr === "process.env.FALLBACK_API_KEY!"),
+  "Expected non-null env fallback branch to be reported",
+);
+assert(
+  !siblingFallbackReports.some((crash) => crash.expr === "process.env.API_KEY"),
+  "Expected safe env branch not to inherit sibling non-null assertion risk",
 );
 
 console.log("Detector fixture checks passed.");
