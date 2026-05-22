@@ -28,16 +28,7 @@ function runCli(args, cwd) {
 }
 
 function copyDir(sourceDir, targetDir) {
-  fs.mkdirSync(targetDir, { recursive: true });
-  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
-    const sourcePath = path.join(sourceDir, entry.name);
-    const targetPath = path.join(targetDir, entry.name);
-    if (entry.isDirectory()) {
-      copyDir(sourcePath, targetPath);
-    } else {
-      fs.copyFileSync(sourcePath, targetPath);
-    }
-  }
+  fs.cpSync(sourceDir, targetDir, { recursive: true });
 }
 
 function createProjectFromFixture() {

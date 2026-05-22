@@ -267,13 +267,33 @@ export function detectUnsafeEnvAccess(
     function hasUnsafeEnvNonNullAssertion(candidate: ts.Node): boolean {
       let unsafe = false;
 
+      function containsEnvAccess(child: ts.Node): boolean {
+        let found = false;
+
+        function visitEnv(candidate: ts.Node) {
+          if (isEnvAccess(candidate)) {
+            found = true;
+            return;
+          }
+
+          ts.forEachChild(candidate, visitEnv);
+        }
+
+        visitEnv(child);
+        return found;
+      }
+
       function visit(child: ts.Node) {
         if (
           ts.isNonNullExpression(child) &&
-          isEnvAccess(child.expression) &&
+          containsEnvAccess(child.expression) &&
           !allowedNonNullWrappers.has(child)
         ) {
-          unsafe = true;
+          try {
+            unsafe = isNullable(checker.getTypeAtLocation(child.expression));
+          } catch {
+            unsafe = true;
+          }
           return;
         }
 
@@ -582,10 +602,16 @@ export function detectUnsafeAccessAfterAwait(
       return node.left.getText();
     }
 
-    function findViolations(node: ts.Node, activeAfterAwait: Set<string>) {
+    function findViolations(
+      node: ts.Node,
+      activeAfterAwait: Set<string>,
+      activeNarrowings: Set<string>,
+    ) {
       if (isFunctionLike(node)) {
         if (isImmediatelyInvokedFunction(node)) {
-          ts.forEachChild(node, (child) => findViolations(child, new Set(activeAfterAwait)));
+          ts.forEachChild(node, (child) =>
+            findViolations(child, new Set(activeAfterAwait), new Set(activeNarrowings)),
+          );
         }
         return;
       }
@@ -593,7 +619,7 @@ export function detectUnsafeAccessAfterAwait(
       if (ts.isBlock(node)) {
         const beforeBlock = new Set(activeAfterAwait);
         const blockState = new Set(activeAfterAwait);
-        findViolationsInBlock(node, blockState);
+        findViolationsInBlock(node, blockState, new Set(activeNarrowings));
         for (const varName of blockState) {
           if (!beforeBlock.has(varName)) {
             activeAfterAwait.add(varName);
@@ -605,7 +631,7 @@ export function detectUnsafeAccessAfterAwait(
       const assignmentTarget = getAssignmentTarget(node);
 
       if (ts.isAwaitExpression(node)) {
-        narrowedVars.forEach((varName) => activeAfterAwait.add(varName));
+        activeNarrowings.forEach((varName) => activeAfterAwait.add(varName));
       }
 
       if (ts.isPropertyAccessExpression(node) && activeAfterAwait.size > 0) {
@@ -626,7 +652,9 @@ export function detectUnsafeAccessAfterAwait(
             const varName = root.getText();
             const originalType = narrowedVarTypes.get(varName);
             if (!originalType) {
-              ts.forEachChild(node, (child) => findViolations(child, activeAfterAwait));
+              ts.forEachChild(node, (child) =>
+                findViolations(child, activeAfterAwait, activeNarrowings),
+              );
               return;
             }
             results.push({
@@ -651,23 +679,29 @@ export function detectUnsafeAccessAfterAwait(
         }
       }
 
-      ts.forEachChild(node, (child) => findViolations(child, activeAfterAwait));
+      ts.forEachChild(node, (child) =>
+        findViolations(child, activeAfterAwait, activeNarrowings),
+      );
 
       if (assignmentTarget) {
-        narrowedVars.delete(assignmentTarget);
-        narrowedVarTypes.delete(assignmentTarget);
+        activeNarrowings.delete(assignmentTarget);
         activeAfterAwait.delete(assignmentTarget);
       }
     }
 
-    function findViolationsInBlock(block: ts.Block, activeAfterAwait = new Set<string>()) {
+    function findViolationsInBlock(
+      block: ts.Block,
+      activeAfterAwait = new Set<string>(),
+      activeNarrowings = new Set(narrowedVars),
+    ) {
       for (const statement of block.statements) {
-        findViolations(statement, activeAfterAwait);
+        findViolations(statement, activeAfterAwait, activeNarrowings);
 
         if (ts.isIfStatement(statement)) {
           const varName = getTrackedEarlyReturnGuard(statement);
           if (varName && activeAfterAwait.has(varName)) {
             activeAfterAwait.delete(varName);
+            activeNarrowings.add(varName);
           }
         }
       }
