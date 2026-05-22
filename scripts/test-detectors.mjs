@@ -32,6 +32,7 @@ const expectedPositiveFindings = [
   ["unsafe-conditional-guard-after-await.ts", "Unsafe access after await"],
   ["unsafe-after-await-conditional-exit-guard.ts", "Unsafe access after await"],
   ["unsafe-await-inside-conditional-block.ts", "Unsafe access after await"],
+  ["unsafe-after-await-property-chain.ts", "Unsafe access after await"],
   ["unsafe-promise-all-destructuring.ts", "Unsafe Promise.all destructuring"],
   ["unsafe-map-record-access.ts", "Unsafe Map/Record access"],
 ];
@@ -52,6 +53,9 @@ const safeFiles = [
   "safe-access-after-await-log-return.ts",
   "safe-access-after-await-reversed-null-check.ts",
   "safe-nonnullable-guard-after-await.ts",
+  "safe-nested-function-after-await.ts",
+  "safe-reassigned-before-await.ts",
+  "safe-reassigned-after-await.ts",
   "safe-promise-all-destructuring.ts",
   "safe-map-record-access.ts",
 ];
@@ -82,5 +86,15 @@ const includedWithTests = withTests.some(
     crash.pattern === "Unprotected JSON.parse",
 );
 assert(includedWithTests, "Expected ignored.spec.ts to be analyzed with --include-tests");
+
+const propertyChainReports = withoutTests.filter(
+  (crash) =>
+    fileName(crash.file) === "unsafe-after-await-property-chain.ts" &&
+    crash.pattern === "Unsafe access after await",
+);
+assert(
+  propertyChainReports.length === 1,
+  `Expected unsafe-after-await-property-chain.ts to report once, got ${propertyChainReports.length}`,
+);
 
 console.log("Detector fixture checks passed.");

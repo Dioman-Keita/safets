@@ -405,6 +405,15 @@ export function detectUnsafeAccessAfterAwait(
     const narrowedVars = new Set<string>();
     const narrowedVarTypes = new Map<string, string>();
 
+    function isFunctionLike(node: ts.Node): boolean {
+      return (
+        ts.isFunctionDeclaration(node) ||
+        ts.isMethodDeclaration(node) ||
+        ts.isArrowFunction(node) ||
+        ts.isFunctionExpression(node)
+      );
+    }
+
     function getEarlyReturnGuardIdentifier(node: ts.IfStatement): ts.Identifier | null {
       const condition = node.expression;
       let identifier: ts.Identifier | null = null;
@@ -494,6 +503,10 @@ export function detectUnsafeAccessAfterAwait(
     }
 
     function collectNarrowings(node: ts.Node) {
+      if (isFunctionLike(node)) {
+        return;
+      }
+
       if (ts.isIfStatement(node)) {
         const guard = getNullableEarlyReturnGuard(node);
         if (guard) {
@@ -505,7 +518,28 @@ export function detectUnsafeAccessAfterAwait(
       ts.forEachChild(node, collectNarrowings);
     }
 
+    function getSafeAssignmentTarget(node: ts.Node): string | null {
+      if (
+        !ts.isBinaryExpression(node) ||
+        node.operatorToken.kind !== ts.SyntaxKind.FirstAssignment ||
+        !ts.isIdentifier(node.left)
+      ) {
+        return null;
+      }
+
+      try {
+        const rightType = checker.getTypeAtLocation(node.right);
+        return isNullable(rightType) ? null : node.left.getText();
+      } catch {
+        return null;
+      }
+    }
+
     function findViolations(node: ts.Node, activeAfterAwait: Set<string>) {
+      if (isFunctionLike(node)) {
+        return;
+      }
+
       if (ts.isBlock(node)) {
         const beforeBlock = new Set(activeAfterAwait);
         const blockState = new Set(activeAfterAwait);
@@ -516,6 +550,13 @@ export function detectUnsafeAccessAfterAwait(
           }
         }
         return;
+      }
+
+      const safeAssignmentTarget = getSafeAssignmentTarget(node);
+      if (safeAssignmentTarget) {
+        narrowedVars.delete(safeAssignmentTarget);
+        narrowedVarTypes.delete(safeAssignmentTarget);
+        activeAfterAwait.delete(safeAssignmentTarget);
       }
 
       if (ts.isAwaitExpression(node)) {
@@ -529,7 +570,11 @@ export function detectUnsafeAccessAfterAwait(
           activeAfterAwait.has(root.getText()) &&
           !isOptionalAccess(node) &&
           !hasNonNullAssertion(node) &&
-          !isSubChainDuplicate(node, checker)
+          !isSubChainDuplicate(node, checker) &&
+          !(
+            ts.isPropertyAccessExpression(node.parent) &&
+            node.parent.questionDotToken === undefined
+          )
         ) {
           try {
             const { line, col } = pos(sf, node);
