@@ -341,9 +341,9 @@ export function detectUnsafeEnvAccess(
           allowedNonNullWrappers.add(current);
         }
         pendingNonNullWrappers.forEach((wrapper) => allowedNonNullWrappers.add(wrapper));
+        foundDefault = true;
       }
       pendingNonNullWrappers = [];
-      foundDefault = true;
       current = parent;
     }
 
@@ -472,8 +472,8 @@ export function detectUnsafeAccessAfterAwait(
   function analyzeFunction(body: ts.Block) {
     const narrowedVars = new Set<string>();
     const narrowedVarTypes = new Map<string, string>();
-    const callableBodies = new Map<string, ts.ConciseBody>();
-    const callStack = new Set<string>();
+    const callableBodies = new Map<ts.Symbol, ts.ConciseBody>();
+    const callStack = new Set<ts.Symbol>();
 
     function isFunctionLike(node: ts.Node): boolean {
       return (
@@ -495,8 +495,9 @@ export function detectUnsafeAccessAfterAwait(
 
     function collectCallableBodies(node: ts.Node) {
       if (ts.isFunctionDeclaration(node)) {
-        if (node.name && node.body) {
-          callableBodies.set(node.name.text, node.body);
+        const symbol = node.name ? checker.getSymbolAtLocation(node.name) : undefined;
+        if (symbol && node.body) {
+          callableBodies.set(symbol, node.body);
         }
         return;
       }
@@ -507,7 +508,10 @@ export function detectUnsafeAccessAfterAwait(
         node.initializer &&
         (ts.isFunctionExpression(node.initializer) || ts.isArrowFunction(node.initializer))
       ) {
-        callableBodies.set(node.name.text, node.initializer.body);
+        const symbol = checker.getSymbolAtLocation(node.name);
+        if (symbol) {
+          callableBodies.set(symbol, node.initializer.body);
+        }
         return;
       }
 
@@ -643,16 +647,16 @@ export function detectUnsafeAccessAfterAwait(
     }
 
     function analyzeCalledClosure(
-      name: string,
+      symbol: ts.Symbol,
       activeAfterAwait: Set<string>,
       activeNarrowings: Set<string>,
     ) {
-      const calledBody = callableBodies.get(name);
-      if (!calledBody || callStack.has(name)) {
+      const calledBody = callableBodies.get(symbol);
+      if (!calledBody || callStack.has(symbol)) {
         return;
       }
 
-      callStack.add(name);
+      callStack.add(symbol);
       if (ts.isBlock(calledBody)) {
         findViolationsInBlock(
           calledBody,
@@ -662,7 +666,7 @@ export function detectUnsafeAccessAfterAwait(
       } else {
         findViolations(calledBody, new Set(activeAfterAwait), new Set(activeNarrowings));
       }
-      callStack.delete(name);
+      callStack.delete(symbol);
     }
 
     function findViolations(
@@ -742,9 +746,12 @@ export function detectUnsafeAccessAfterAwait(
       if (
         ts.isCallExpression(node) &&
         ts.isIdentifier(node.expression) &&
-        activeAfterAwait.size > 0
+        (activeAfterAwait.size > 0 || activeNarrowings.size > 0)
       ) {
-        analyzeCalledClosure(node.expression.text, activeAfterAwait, activeNarrowings);
+        const symbol = checker.getSymbolAtLocation(node.expression);
+        if (symbol) {
+          analyzeCalledClosure(symbol, activeAfterAwait, activeNarrowings);
+        }
       }
 
       ts.forEachChild(node, (child) =>

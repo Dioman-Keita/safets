@@ -47,7 +47,16 @@ jobs:
         run: npm run typecheck
 
       - name: Smoke test CLI
-        run: npm test
+        run: npm run test:smoke
+
+      - name: CLI contract tests
+        run: npm run test:cli
+
+      - name: Detector fixture tests
+        run: npm run test:detectors
+
+      - name: CLI integration tests
+        run: npm run test:integration
 
       - name: Verify npm package contents
         run: npm run pack:check

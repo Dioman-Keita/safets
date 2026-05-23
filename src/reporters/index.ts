@@ -199,6 +199,16 @@ export function printFix(crashes: CrashReport[], root: string) {
   console.log(c.dim("  SafeTS is read-only - it never modifies your source code."));
   console.log(c.dim("  Apply these suggestions manually.\n"));
 
+  if (crashes.length === 0) {
+    console.log(c.green("  No manual fixes to suggest right now."));
+    console.log(
+      c.dim("  SafeTS did not find any supported runtime-crash patterns in the scanned files."),
+    );
+    console.log(c.dim("  If you expected findings, try 'safets doctor --include-tests'."));
+    console.log();
+    return;
+  }
+
   for (const crash of crashes) {
     console.log(c.cyan(`\n  ${rel(crash.file)}:${crash.line}  ${crash.pattern}`));
     console.log(c.dim(`  ${crash.expr}`));

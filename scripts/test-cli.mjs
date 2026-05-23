@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-const repoRoot = path.resolve(import.meta.dirname, "..");
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cliEntrypoint = path.join(repoRoot, "dist", "index.js");
 const packageJson = JSON.parse(
   fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
@@ -117,6 +118,23 @@ function testInvalidFlagCombination() {
   assert(output.includes("`--fail-on-new` can only be used with `doctor`"), "Expected invalid flag combination message", output);
 }
 
+function testFixNoSuggestionsMessage() {
+  const projectDir = createProject({
+    "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
+    "app.ts": "const user = { name: 'Ada' };\nconsole.log(user.name);\n",
+  });
+
+  const result = runCli(["fix"], projectDir);
+  const output = stripAnsi(`${result.stdout}${result.stderr}`);
+  assert(result.status === 0, "Expected fix to exit with code 0 when no suggestions exist", output);
+  assert(output.includes("No manual fixes to suggest right now."), "Expected fix to explain empty suggestions", output);
+  assert(
+    output.includes("SafeTS did not find any supported runtime-crash patterns"),
+    "Expected fix to describe why no suggestions were printed",
+    output,
+  );
+}
+
 try {
   testHelp();
   testVersion();
@@ -125,6 +143,7 @@ try {
   testFailOnNew();
   testMismatchFailOnNew();
   testInvalidFlagCombination();
+  testFixNoSuggestionsMessage();
   console.log("CLI contract checks passed.");
 } finally {
   cleanupTempDirs();

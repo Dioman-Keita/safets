@@ -29,6 +29,7 @@ const expectedPositiveFindings = [
   ["unsafe-process-env-chain-without-default.ts", "Unsafe process.env access"],
   ["unsafe-process-env-non-null-fallback.ts", "Unsafe process.env access"],
   ["unsafe-process-env-coalesced-non-null.ts", "Unsafe process.env access"],
+  ["unsafe-env-right-fallback.ts", "Unsafe process.env access"],
   ["non-null-assertion-on-nullable.ts", "Non-null assertion on nullable"],
   ["unsafe-access-after-await.ts", "Unsafe access after await"],
   ["unsafe-conditional-guard-after-await.ts", "Unsafe access after await"],
@@ -39,6 +40,7 @@ const expectedPositiveFindings = [
   ["unsafe-guard-return-expression-after-await.ts", "Unsafe access after await"],
   ["unsafe-closure-after-await.ts", "Unsafe access after await"],
   ["unsafe-called-closure-after-await.ts", "Unsafe access after await"],
+  ["unsafe-called-closure-internal-await.ts", "Unsafe access after await"],
   ["unsafe-promise-all-destructuring.ts", "Unsafe Promise.all destructuring"],
   ["unsafe-map-record-access.ts", "Unsafe Map/Record access"],
 ];
@@ -124,6 +126,16 @@ assert(
 assert(
   !siblingFallbackReports.some((crash) => crash.expr === "process.env.API_KEY"),
   "Expected safe env branch not to inherit sibling non-null assertion risk",
+);
+
+const shadowedClosureReports = withoutTests.filter(
+  (crash) =>
+    fileName(crash.file) === "safe-called-closure-shadowed-name-after-await.ts" &&
+    crash.pattern === "Unsafe access after await",
+);
+assert(
+  shadowedClosureReports.length === 0,
+  "Expected called closures to resolve by symbol instead of shadowed name text",
 );
 
 console.log("Detector fixture checks passed.");
