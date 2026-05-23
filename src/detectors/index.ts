@@ -361,7 +361,8 @@ export function detectUnsafeEnvAccess(
   function visit(node: ts.Node) {
     if (
       isEnvAccess(node) &&
-      !isSafelyDefaulted(node)
+      !isSafelyDefaulted(node) &&
+      !ts.isNonNullExpression(node.parent)
     ) {
       try {
         const envVar = node.name.getText();
@@ -470,8 +471,8 @@ export function detectUnsafeAccessAfterAwait(
   const results: CrashReport[] = [];
 
   function analyzeFunction(body: ts.Block) {
-    const narrowedVars = new Set<string>();
-    const narrowedVarTypes = new Map<string, string>();
+    const narrowedVars = new Set<ts.Symbol>();
+    const narrowedVarTypes = new Map<ts.Symbol, { name: string; type: string }>();
     const callableBodies = new Map<ts.Symbol, ts.ConciseBody>();
     const callStack = new Set<ts.Symbol>();
 
@@ -586,13 +587,19 @@ export function detectUnsafeAccessAfterAwait(
       }
 
       try {
+        const symbol = checker.getSymbolAtLocation(identifier);
+        if (!symbol) {
+          return null;
+        }
+
         const type = checker.getTypeAtLocation(identifier);
         if (!isNullable(type)) {
           return null;
         }
 
         return {
-          varName: identifier.getText(),
+          symbol,
+          name: identifier.getText(),
           type: checker.typeToString(type),
         };
       } catch {
@@ -602,12 +609,12 @@ export function detectUnsafeAccessAfterAwait(
 
     function getTrackedEarlyReturnGuard(node: ts.IfStatement) {
       const identifier = getEarlyReturnGuardIdentifier(node);
-      const varName = identifier?.getText();
-      if (!varName || !narrowedVarTypes.has(varName)) {
+      const symbol = identifier ? checker.getSymbolAtLocation(identifier) : undefined;
+      if (!symbol || !narrowedVarTypes.has(symbol)) {
         return null;
       }
 
-      return varName;
+      return symbol;
     }
 
     function collectNarrowings(node: ts.Node) {
@@ -618,15 +625,18 @@ export function detectUnsafeAccessAfterAwait(
       if (ts.isIfStatement(node)) {
         const guard = getNullableEarlyReturnGuard(node);
         if (guard) {
-          narrowedVars.add(guard.varName);
-          narrowedVarTypes.set(guard.varName, guard.type);
+          narrowedVars.add(guard.symbol);
+          narrowedVarTypes.set(guard.symbol, {
+            name: guard.name,
+            type: guard.type,
+          });
         }
       }
 
       ts.forEachChild(node, collectNarrowings);
     }
 
-    function getAssignmentTarget(node: ts.Node): string | null {
+    function getAssignmentTarget(node: ts.Node): ts.Symbol | null {
       if (
         !ts.isBinaryExpression(node) ||
         node.operatorToken.kind < ts.SyntaxKind.FirstAssignment ||
@@ -636,7 +646,7 @@ export function detectUnsafeAccessAfterAwait(
         return null;
       }
 
-      return node.left.getText();
+      return checker.getSymbolAtLocation(node.left) ?? null;
     }
 
     function isOutermostPropertyAccess(node: ts.PropertyAccessExpression): boolean {
@@ -648,8 +658,8 @@ export function detectUnsafeAccessAfterAwait(
 
     function analyzeCalledClosure(
       symbol: ts.Symbol,
-      activeAfterAwait: Set<string>,
-      activeNarrowings: Set<string>,
+      activeAfterAwait: Set<ts.Symbol>,
+      activeNarrowings: Set<ts.Symbol>,
     ) {
       const calledBody = callableBodies.get(symbol);
       if (!calledBody || callStack.has(symbol)) {
@@ -671,8 +681,8 @@ export function detectUnsafeAccessAfterAwait(
 
     function findViolations(
       node: ts.Node,
-      activeAfterAwait: Set<string>,
-      activeNarrowings: Set<string>,
+      activeAfterAwait: Set<ts.Symbol>,
+      activeNarrowings: Set<ts.Symbol>,
     ) {
       if (isFunctionLike(node)) {
         if (isImmediatelyInvokedFunction(node)) {
@@ -687,9 +697,9 @@ export function detectUnsafeAccessAfterAwait(
         const beforeBlock = new Set(activeAfterAwait);
         const blockState = new Set(activeAfterAwait);
         findViolationsInBlock(node, blockState, new Set(activeNarrowings));
-        for (const varName of blockState) {
-          if (!beforeBlock.has(varName)) {
-            activeAfterAwait.add(varName);
+        for (const symbol of blockState) {
+          if (!beforeBlock.has(symbol)) {
+            activeAfterAwait.add(symbol);
           }
         }
         return;
@@ -703,9 +713,12 @@ export function detectUnsafeAccessAfterAwait(
 
       if (ts.isPropertyAccessExpression(node) && activeAfterAwait.size > 0) {
         const root = getChainRoot(node.expression);
+        const rootSymbol = ts.isIdentifier(root)
+          ? checker.getSymbolAtLocation(root)
+          : undefined;
         if (
-          ts.isIdentifier(root) &&
-          activeAfterAwait.has(root.getText()) &&
+          rootSymbol &&
+          activeAfterAwait.has(rootSymbol) &&
           !isOptionalAccess(node) &&
           !hasNonNullAssertion(node) &&
           !isSubChainDuplicate(node, checker) &&
@@ -713,8 +726,7 @@ export function detectUnsafeAccessAfterAwait(
         ) {
           try {
             const { line, col } = pos(sf, node);
-            const varName = root.getText();
-            const originalType = narrowedVarTypes.get(varName);
+            const originalType = narrowedVarTypes.get(rootSymbol);
             if (!originalType) {
               ts.forEachChild(node, (child) =>
                 findViolations(child, activeAfterAwait, activeNarrowings),
@@ -726,14 +738,14 @@ export function detectUnsafeAccessAfterAwait(
               line,
               col,
               expr: node.getText(),
-              rootExpr: varName,
-              type: originalType,
+              rootExpr: originalType.name,
+              type: originalType.type,
               pattern: "Unsafe access after await",
               confidence: "MEDIUM",
               crashPath: [
-                `${varName} narrowed from ${originalType} to defined`,
+                `${originalType.name} narrowed from ${originalType.type} to defined`,
                 "await suspended execution - external state may have changed",
-                `${varName} may be undefined again after resuming`,
+                `${originalType.name} may be undefined again after resuming`,
                 `${node.getText()} -> Cannot read properties of undefined`,
               ],
             });
@@ -766,17 +778,17 @@ export function detectUnsafeAccessAfterAwait(
 
     function findViolationsInBlock(
       block: ts.Block,
-      activeAfterAwait = new Set<string>(),
+      activeAfterAwait = new Set<ts.Symbol>(),
       activeNarrowings = new Set(narrowedVars),
     ) {
       for (const statement of block.statements) {
         findViolations(statement, activeAfterAwait, activeNarrowings);
 
         if (ts.isIfStatement(statement)) {
-          const varName = getTrackedEarlyReturnGuard(statement);
-          if (varName && activeAfterAwait.has(varName)) {
-            activeAfterAwait.delete(varName);
-            activeNarrowings.add(varName);
+          const symbol = getTrackedEarlyReturnGuard(statement);
+          if (symbol && activeAfterAwait.has(symbol)) {
+            activeAfterAwait.delete(symbol);
+            activeNarrowings.add(symbol);
           }
         }
       }

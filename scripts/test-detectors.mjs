@@ -65,6 +65,7 @@ const safeFiles = [
   "safe-nested-function-after-await.ts",
   "safe-reassigned-before-await.ts",
   "safe-reassigned-after-await.ts",
+  "safe-shadowed-access-after-await.ts",
   "safe-promise-all-destructuring.ts",
   "safe-map-record-access.ts",
 ];
@@ -122,6 +123,10 @@ const siblingFallbackReports = withoutTests.filter(
 assert(
   siblingFallbackReports.some((crash) => crash.expr === "process.env.FALLBACK_API_KEY!"),
   "Expected non-null env fallback branch to be reported",
+);
+assert(
+  !siblingFallbackReports.some((crash) => crash.expr === "process.env.FALLBACK_API_KEY"),
+  "Expected non-null env fallback branch not to be reported twice",
 );
 assert(
   !siblingFallbackReports.some((crash) => crash.expr === "process.env.API_KEY"),
