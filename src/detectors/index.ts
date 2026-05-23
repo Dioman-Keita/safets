@@ -529,6 +529,13 @@ export function detectUnsafeAccessAfterAwait(
       const condition = node.expression;
       let identifier: ts.Identifier | null = null;
 
+      function isNullishLiteral(candidate: ts.Node): boolean {
+        return (
+          candidate.kind === ts.SyntaxKind.NullKeyword ||
+          (ts.isIdentifier(candidate) && candidate.text === "undefined")
+        );
+      }
+
       if (
         ts.isPrefixUnaryExpression(condition) &&
         condition.operator === ts.SyntaxKind.ExclamationToken &&
@@ -545,14 +552,9 @@ export function detectUnsafeAccessAfterAwait(
         ) {
           const left = condition.left;
           const right = condition.right;
-          const leftText = left.getText();
-          const rightText = right.getText();
-          if (ts.isIdentifier(left) && (rightText === "null" || rightText === "undefined")) {
+          if (ts.isIdentifier(left) && isNullishLiteral(right)) {
             identifier = left;
-          } else if (
-            ts.isIdentifier(right) &&
-            (leftText === "null" || leftText === "undefined")
-          ) {
+          } else if (ts.isIdentifier(right) && isNullishLiteral(left)) {
             identifier = right;
           }
         }
@@ -569,9 +571,7 @@ export function detectUnsafeAccessAfterAwait(
 
         return (
           ts.isBlock(statement) &&
-          statement.statements.some(
-            (child) => ts.isReturnStatement(child) || ts.isThrowStatement(child),
-          )
+          statement.statements.some((child) => isEarlyExit(child))
         );
       };
 

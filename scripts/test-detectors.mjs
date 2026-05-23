@@ -21,6 +21,7 @@ function fileName(filePath) {
 
 const expectedPositiveFindings = [
   ["unsafe-property-access.ts", "Unsafe property access"],
+  ["unsafe-conditional-return-only-guard.ts", "Unsafe property access"],
   ["unsafe-destructuring.ts", "Unsafe destructuring"],
   ["unsafe-array-index-access.ts", "Unsafe array index access"],
   ["unprotected-json-parse.ts", "Unprotected JSON.parse"],
