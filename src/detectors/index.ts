@@ -697,7 +697,7 @@ export function detectUnsafeAccessAfterAwait(
       const assignmentTarget = getAssignmentTarget(node);
 
       if (ts.isAwaitExpression(node)) {
-        activeNarrowings.forEach((varName) => activeAfterAwait.add(varName));
+        activeNarrowings.forEach((symbol) => activeAfterAwait.add(symbol));
       }
 
       if (ts.isPropertyAccessExpression(node) && activeAfterAwait.size > 0) {
