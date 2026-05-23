@@ -471,7 +471,6 @@ export function detectUnsafeAccessAfterAwait(
   const results: CrashReport[] = [];
 
   function analyzeFunction(body: ts.Block) {
-    const narrowedVars = new Set<ts.Symbol>();
     const narrowedVarTypes = new Map<ts.Symbol, { name: string; type: string }>();
     const callableBodies = new Map<ts.Symbol, ts.ConciseBody>();
     const callStack = new Set<ts.Symbol>();
@@ -582,7 +581,7 @@ export function detectUnsafeAccessAfterAwait(
       return identifier;
     }
 
-    function getNullableEarlyReturnGuard(node: ts.IfStatement) {
+    function getEarlyReturnGuard(node: ts.IfStatement) {
       const identifier = getEarlyReturnGuardIdentifier(node);
       if (!identifier) {
         return null;
@@ -592,6 +591,15 @@ export function detectUnsafeAccessAfterAwait(
         const symbol = checker.getSymbolAtLocation(identifier);
         if (!symbol) {
           return null;
+        }
+
+        const existing = narrowedVarTypes.get(symbol);
+        if (existing) {
+          return {
+            symbol,
+            name: existing.name,
+            type: existing.type,
+          };
         }
 
         const type = checker.getTypeAtLocation(identifier);
@@ -607,35 +615,6 @@ export function detectUnsafeAccessAfterAwait(
       } catch {
         return null;
       }
-    }
-
-    function getTrackedEarlyReturnGuard(node: ts.IfStatement) {
-      const identifier = getEarlyReturnGuardIdentifier(node);
-      const symbol = identifier ? checker.getSymbolAtLocation(identifier) : undefined;
-      if (!symbol || !narrowedVarTypes.has(symbol)) {
-        return null;
-      }
-
-      return symbol;
-    }
-
-    function collectNarrowings(node: ts.Node) {
-      if (isFunctionLike(node)) {
-        return;
-      }
-
-      if (ts.isIfStatement(node)) {
-        const guard = getNullableEarlyReturnGuard(node);
-        if (guard) {
-          narrowedVars.add(guard.symbol);
-          narrowedVarTypes.set(guard.symbol, {
-            name: guard.name,
-            type: guard.type,
-          });
-        }
-      }
-
-      ts.forEachChild(node, collectNarrowings);
     }
 
     function getAssignmentTarget(node: ts.Node): ts.Symbol | null {
@@ -789,23 +768,26 @@ export function detectUnsafeAccessAfterAwait(
     function findViolationsInBlock(
       block: ts.Block,
       activeAfterAwait = new Set<ts.Symbol>(),
-      activeNarrowings = new Set(narrowedVars),
+      activeNarrowings = new Set<ts.Symbol>(),
     ) {
       for (const statement of block.statements) {
         findViolations(statement, activeAfterAwait, activeNarrowings);
 
         if (ts.isIfStatement(statement)) {
-          const symbol = getTrackedEarlyReturnGuard(statement);
-          if (symbol && activeAfterAwait.has(symbol)) {
-            activeAfterAwait.delete(symbol);
-            activeNarrowings.add(symbol);
+          const guard = getEarlyReturnGuard(statement);
+          if (guard) {
+            narrowedVarTypes.set(guard.symbol, {
+              name: guard.name,
+              type: guard.type,
+            });
+            activeAfterAwait.delete(guard.symbol);
+            activeNarrowings.add(guard.symbol);
           }
         }
       }
     }
 
     collectCallableBodies(body);
-    collectNarrowings(body);
     findViolationsInBlock(body);
   }
 
