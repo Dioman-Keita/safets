@@ -499,6 +499,7 @@ export function detectUnsafeAccessAfterAwait(
         const symbol = node.name ? checker.getSymbolAtLocation(node.name) : undefined;
         if (symbol && node.body) {
           callableBodies.set(symbol, node.body);
+          collectCallableBodies(node.body);
         }
         return;
       }
@@ -512,6 +513,7 @@ export function detectUnsafeAccessAfterAwait(
         const symbol = checker.getSymbolAtLocation(node.name);
         if (symbol) {
           callableBodies.set(symbol, node.initializer.body);
+          collectCallableBodies(node.initializer.body);
         }
         return;
       }
@@ -694,14 +696,22 @@ export function detectUnsafeAccessAfterAwait(
       }
 
       if (ts.isBlock(node)) {
-        const beforeBlock = new Set(activeAfterAwait);
-        const blockState = new Set(activeAfterAwait);
-        findViolationsInBlock(node, blockState, new Set(activeNarrowings));
-        for (const symbol of blockState) {
-          if (!beforeBlock.has(symbol)) {
-            activeAfterAwait.add(symbol);
-          }
+        const isConditionalBranch =
+          ts.isIfStatement(node.parent) &&
+          (node.parent.thenStatement === node || node.parent.elseStatement === node);
+        const blockAfterAwait = new Set(activeAfterAwait);
+        const blockNarrowings = new Set(activeNarrowings);
+        findViolationsInBlock(node, blockAfterAwait, blockNarrowings);
+
+        if (isConditionalBranch) {
+          blockAfterAwait.forEach((symbol) => activeAfterAwait.add(symbol));
+          return;
         }
+
+        activeAfterAwait.clear();
+        blockAfterAwait.forEach((symbol) => activeAfterAwait.add(symbol));
+        activeNarrowings.clear();
+        blockNarrowings.forEach((symbol) => activeNarrowings.add(symbol));
         return;
       }
 

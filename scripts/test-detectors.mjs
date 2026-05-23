@@ -41,6 +41,8 @@ const expectedPositiveFindings = [
   ["unsafe-closure-after-await.ts", "Unsafe access after await"],
   ["unsafe-called-closure-after-await.ts", "Unsafe access after await"],
   ["unsafe-called-closure-internal-await.ts", "Unsafe access after await"],
+  ["unsafe-called-closure-nested-helper-after-await.ts", "Unsafe access after await"],
+  ["unsafe-block-guard-before-await.ts", "Unsafe access after await"],
   ["unsafe-promise-all-destructuring.ts", "Unsafe Promise.all destructuring"],
   ["unsafe-map-record-access.ts", "Unsafe Map/Record access"],
 ];
@@ -65,6 +67,7 @@ const safeFiles = [
   "safe-nested-function-after-await.ts",
   "safe-reassigned-before-await.ts",
   "safe-reassigned-after-await.ts",
+  "safe-block-reassigned-after-await.ts",
   "safe-shadowed-access-after-await.ts",
   "safe-promise-all-destructuring.ts",
   "safe-map-record-access.ts",
