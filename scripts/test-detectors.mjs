@@ -39,7 +39,10 @@ const expectedPositiveFindings = [
   ["unsafe-after-await-property-chain.ts", "Unsafe access after await"],
   ["unsafe-assignment-rhs-after-await.ts", "Unsafe access after await"],
   ["unsafe-guard-return-expression-after-await.ts", "Unsafe access after await"],
+  ["unsafe-parenthesized-guard-after-await.ts", "Unsafe access after await"],
   ["unsafe-access-before-late-guard-after-await.ts", "Unsafe property access"],
+  ["unsafe-conditional-reassigned-before-await.ts", "Unsafe property access"],
+  ["unsafe-iife-reassigned-before-await.ts", "Unsafe property access"],
   ["unsafe-closure-after-await.ts", "Unsafe access after await"],
   ["unsafe-called-closure-after-await.ts", "Unsafe access after await"],
   ["unsafe-called-closure-internal-await.ts", "Unsafe access after await"],
@@ -72,6 +75,7 @@ const safeFiles = [
   "safe-reassigned-after-await.ts",
   "safe-block-reassigned-after-await.ts",
   "safe-called-closure-reassigned-after-await.ts",
+  "safe-call-async-helper-with-internal-await.ts",
   "safe-destructuring-reassigned-after-await.ts",
   "safe-shadowed-access-after-await.ts",
   "safe-promise-all-destructuring.ts",
@@ -123,6 +127,19 @@ const uninvokedNestedAfterAwaitReports = withoutTests.filter(
 assert(
   uninvokedNestedAfterAwaitReports.length === 0,
   "Expected uninvoked nested functions not to inherit after-await state",
+);
+
+const reassignedBeforeAwaitReports = withoutTests.filter(
+  (crash) =>
+    [
+      "unsafe-conditional-reassigned-before-await.ts",
+      "unsafe-iife-reassigned-before-await.ts",
+    ].includes(fileName(crash.file)) &&
+    crash.pattern === "Unsafe access after await",
+);
+assert(
+  reassignedBeforeAwaitReports.length === 0,
+  "Expected reassignment before await to invalidate after-await narrowing state",
 );
 
 const siblingFallbackReports = withoutTests.filter(

@@ -525,7 +525,7 @@ export function detectUnsafeAccessAfterAwait(
     }
 
     function getEarlyReturnGuardIdentifier(node: ts.IfStatement): ts.Identifier | null {
-      const condition = node.expression;
+      const condition = unwrapExpression(node.expression);
       let identifier: ts.Identifier | null = null;
 
       function isNullishLiteral(candidate: ts.Node): boolean {
@@ -538,9 +538,9 @@ export function detectUnsafeAccessAfterAwait(
       if (
         ts.isPrefixUnaryExpression(condition) &&
         condition.operator === ts.SyntaxKind.ExclamationToken &&
-        ts.isIdentifier(condition.operand)
+        ts.isIdentifier(unwrapExpression(condition.operand))
       ) {
-        identifier = condition.operand;
+        identifier = unwrapExpression(condition.operand) as ts.Identifier;
       }
 
       if (ts.isBinaryExpression(condition)) {
@@ -549,8 +549,8 @@ export function detectUnsafeAccessAfterAwait(
           op === ts.SyntaxKind.EqualsEqualsEqualsToken ||
           op === ts.SyntaxKind.EqualsEqualsToken
         ) {
-          const left = condition.left;
-          const right = condition.right;
+          const left = unwrapExpression(condition.left);
+          const right = unwrapExpression(condition.right);
           if (ts.isIdentifier(left) && isNullishLiteral(right)) {
             identifier = left;
           } else if (ts.isIdentifier(right) && isNullishLiteral(left)) {
@@ -666,6 +666,14 @@ export function detectUnsafeAccessAfterAwait(
       return symbols;
     }
 
+    function unwrapExpression(expression: ts.Expression): ts.Expression {
+      let current = expression;
+      while (ts.isParenthesizedExpression(current)) {
+        current = current.expression;
+      }
+      return current;
+    }
+
     function isOutermostPropertyAccess(node: ts.PropertyAccessExpression): boolean {
       return !(
         ts.isPropertyAccessExpression(node.parent) &&
@@ -677,6 +685,7 @@ export function detectUnsafeAccessAfterAwait(
       symbol: ts.Symbol,
       activeAfterAwait: Set<ts.Symbol>,
       activeNarrowings: Set<ts.Symbol>,
+      assignedSymbols: Set<ts.Symbol>,
     ) {
       const calledBody = callableBodies.get(symbol);
       if (!calledBody || callStack.has(symbol)) {
@@ -684,24 +693,52 @@ export function detectUnsafeAccessAfterAwait(
       }
 
       callStack.add(symbol);
+      const closureAssignments = new Set<ts.Symbol>();
       if (ts.isBlock(calledBody)) {
-        findViolationsInBlock(calledBody, activeAfterAwait, activeNarrowings);
+        findViolationsInBlock(
+          calledBody,
+          new Set(activeAfterAwait),
+          new Set(activeNarrowings),
+          closureAssignments,
+        );
       } else {
-        findViolations(calledBody, activeAfterAwait, activeNarrowings);
+        findViolations(
+          calledBody,
+          new Set(activeAfterAwait),
+          new Set(activeNarrowings),
+          closureAssignments,
+        );
       }
       callStack.delete(symbol);
+      closureAssignments.forEach((assignedSymbol) => {
+        assignedSymbols.add(assignedSymbol);
+        activeAfterAwait.delete(assignedSymbol);
+        activeNarrowings.delete(assignedSymbol);
+      });
     }
 
     function findViolations(
       node: ts.Node,
       activeAfterAwait: Set<ts.Symbol>,
       activeNarrowings: Set<ts.Symbol>,
+      assignedSymbols: Set<ts.Symbol>,
     ) {
       if (isFunctionLike(node)) {
         if (isImmediatelyInvokedFunction(node)) {
+          const iifeAssignments = new Set<ts.Symbol>();
           ts.forEachChild(node, (child) =>
-            findViolations(child, new Set(activeAfterAwait), new Set(activeNarrowings)),
+            findViolations(
+              child,
+              new Set(activeAfterAwait),
+              new Set(activeNarrowings),
+              iifeAssignments,
+            ),
           );
+          iifeAssignments.forEach((assignedSymbol) => {
+            assignedSymbols.add(assignedSymbol);
+            activeAfterAwait.delete(assignedSymbol);
+            activeNarrowings.delete(assignedSymbol);
+          });
         }
         return;
       }
@@ -712,10 +749,21 @@ export function detectUnsafeAccessAfterAwait(
           (node.parent.thenStatement === node || node.parent.elseStatement === node);
         const blockAfterAwait = new Set(activeAfterAwait);
         const blockNarrowings = new Set(activeNarrowings);
-        findViolationsInBlock(node, blockAfterAwait, blockNarrowings);
+        const blockAssignments = new Set<ts.Symbol>();
+        findViolationsInBlock(
+          node,
+          blockAfterAwait,
+          blockNarrowings,
+          blockAssignments,
+        );
 
         if (isConditionalBranch) {
           blockAfterAwait.forEach((symbol) => activeAfterAwait.add(symbol));
+          blockAssignments.forEach((assignedSymbol) => {
+            assignedSymbols.add(assignedSymbol);
+            // A conditional assignment breaks narrowing, but sibling paths may still be post-await.
+            activeNarrowings.delete(assignedSymbol);
+          });
           return;
         }
 
@@ -723,6 +771,7 @@ export function detectUnsafeAccessAfterAwait(
         blockAfterAwait.forEach((symbol) => activeAfterAwait.add(symbol));
         activeNarrowings.clear();
         blockNarrowings.forEach((symbol) => activeNarrowings.add(symbol));
+        blockAssignments.forEach((assignedSymbol) => assignedSymbols.add(assignedSymbol));
         return;
       }
 
@@ -730,7 +779,7 @@ export function detectUnsafeAccessAfterAwait(
 
       if (ts.isAwaitExpression(node)) {
         ts.forEachChild(node, (child) =>
-          findViolations(child, activeAfterAwait, activeNarrowings),
+          findViolations(child, activeAfterAwait, activeNarrowings, assignedSymbols),
         );
         activeNarrowings.forEach((symbol) => activeAfterAwait.add(symbol));
         return;
@@ -754,7 +803,7 @@ export function detectUnsafeAccessAfterAwait(
             const originalType = narrowedVarTypes.get(rootSymbol);
             if (!originalType) {
               ts.forEachChild(node, (child) =>
-                findViolations(child, activeAfterAwait, activeNarrowings),
+                findViolations(child, activeAfterAwait, activeNarrowings, assignedSymbols),
               );
               return;
             }
@@ -787,15 +836,21 @@ export function detectUnsafeAccessAfterAwait(
       ) {
         const symbol = checker.getSymbolAtLocation(node.expression);
         if (symbol) {
-          analyzeCalledClosure(symbol, activeAfterAwait, activeNarrowings);
+          analyzeCalledClosure(
+            symbol,
+            activeAfterAwait,
+            activeNarrowings,
+            assignedSymbols,
+          );
         }
       }
 
       ts.forEachChild(node, (child) =>
-        findViolations(child, activeAfterAwait, activeNarrowings),
+        findViolations(child, activeAfterAwait, activeNarrowings, assignedSymbols),
       );
 
       for (const assignmentTarget of assignmentTargets) {
+        assignedSymbols.add(assignmentTarget);
         activeNarrowings.delete(assignmentTarget);
         activeAfterAwait.delete(assignmentTarget);
       }
@@ -805,9 +860,10 @@ export function detectUnsafeAccessAfterAwait(
       block: ts.Block,
       activeAfterAwait = new Set<ts.Symbol>(),
       activeNarrowings = new Set<ts.Symbol>(),
+      assignedSymbols = new Set<ts.Symbol>(),
     ) {
       for (const statement of block.statements) {
-        findViolations(statement, activeAfterAwait, activeNarrowings);
+        findViolations(statement, activeAfterAwait, activeNarrowings, assignedSymbols);
 
         if (ts.isIfStatement(statement)) {
           const guard = getEarlyReturnGuard(statement);
