@@ -249,12 +249,120 @@ export function detectUnsafeEnvAccess(
 ): CrashReport[] {
   const results: CrashReport[] = [];
 
+  function isEnvAccess(candidate: ts.Node): candidate is ts.PropertyAccessExpression {
+    return (
+      ts.isPropertyAccessExpression(candidate) &&
+      ts.isPropertyAccessExpression(candidate.expression) &&
+      ts.isIdentifier(candidate.expression.expression) &&
+      candidate.expression.expression.text === "process" &&
+      ts.isIdentifier(candidate.expression.name) &&
+      candidate.expression.name.text === "env"
+    );
+  }
+
+  function isSafelyDefaulted(node: ts.Node): boolean {
+    let current: ts.Node = node;
+    let foundDefault = false;
+    let pendingNonNullWrappers: ts.NonNullExpression[] = [];
+    const allowedNonNullWrappers = new Set<ts.NonNullExpression>();
+
+    function containsEnvAccess(child: ts.Node): boolean {
+      let found = false;
+
+      function visitEnv(candidate: ts.Node) {
+        if (isEnvAccess(candidate)) {
+          found = true;
+          return;
+        }
+
+        ts.forEachChild(candidate, visitEnv);
+      }
+
+      visitEnv(child);
+      return found;
+    }
+
+    function isUnsafeNonNullEnvExpression(candidate: ts.Node): boolean {
+      if (
+        !ts.isNonNullExpression(candidate) ||
+        !containsEnvAccess(candidate.expression) ||
+        allowedNonNullWrappers.has(candidate)
+      ) {
+        return false;
+      }
+
+      try {
+        return isNullable(checker.getTypeAtLocation(candidate.expression));
+      } catch {
+        return true;
+      }
+    }
+
+    function hasUnsafeEnvNonNullAssertionOnPath(start: ts.Node, root: ts.Node): boolean {
+      let candidate: ts.Node | undefined = start;
+
+      while (candidate) {
+        if (isUnsafeNonNullEnvExpression(candidate)) {
+          return true;
+        }
+
+        if (candidate === root) {
+          return false;
+        }
+
+        candidate = candidate.parent;
+      }
+
+      return false;
+    }
+
+    while (true) {
+      while (
+        ts.isParenthesizedExpression(current.parent) ||
+        ts.isNonNullExpression(current.parent)
+      ) {
+        if (ts.isNonNullExpression(current.parent)) {
+          pendingNonNullWrappers.push(current.parent);
+        }
+        current = current.parent;
+      }
+
+      const parent = current.parent;
+      if (
+        !ts.isBinaryExpression(parent) ||
+        (parent.operatorToken.kind !== ts.SyntaxKind.QuestionQuestionToken &&
+          parent.operatorToken.kind !== ts.SyntaxKind.BarBarToken)
+      ) {
+        break;
+      }
+
+      if (parent.left === current) {
+        if (ts.isNonNullExpression(current) && isEnvAccess(current.expression)) {
+          allowedNonNullWrappers.add(current);
+        }
+        pendingNonNullWrappers.forEach((wrapper) => allowedNonNullWrappers.add(wrapper));
+        foundDefault = true;
+      }
+      pendingNonNullWrappers = [];
+      current = parent;
+    }
+
+    if (!foundDefault || hasUnsafeEnvNonNullAssertionOnPath(node, current)) {
+      return false;
+    }
+
+    try {
+      return !isNullable(checker.getTypeAtLocation(current));
+    } catch {
+      return false;
+    }
+  }
+
   function visit(node: ts.Node) {
     if (
-      ts.isPropertyAccessExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      node.expression.expression.getText() === "process" &&
-      node.expression.name.getText() === "env"
+      isEnvAccess(node) &&
+      !isSafelyDefaulted(node) &&
+      !ts.isNonNullExpression(node.parent)
     ) {
       try {
         const envVar = node.name.getText();
@@ -283,10 +391,8 @@ export function detectUnsafeEnvAccess(
 
     if (
       ts.isNonNullExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      ts.isPropertyAccessExpression(node.expression.expression) &&
-      node.expression.expression.expression.getText() === "process" &&
-      node.expression.expression.name.getText() === "env"
+      isEnvAccess(node.expression) &&
+      !isSafelyDefaulted(node)
     ) {
       const envVar = node.expression.name.getText();
       const { line, col } = pos(sf, node);
@@ -365,104 +471,416 @@ export function detectUnsafeAccessAfterAwait(
   const results: CrashReport[] = [];
 
   function analyzeFunction(body: ts.Block) {
-    const narrowedVars = new Set<string>();
-    const awaitedAfterNarrow = new Set<string>();
+    const narrowedVarTypes = new Map<ts.Symbol, { name: string; type: string }>();
+    const callableBodies = new Map<ts.Symbol, ts.ConciseBody>();
+    const callStack = new Set<ts.Symbol>();
 
-    function collectNarrowings(node: ts.Node) {
-      if (ts.isIfStatement(node)) {
-        const condition = node.expression;
-        let varName: string | null = null;
-
-        if (
-          ts.isPrefixUnaryExpression(condition) &&
-          condition.operator === ts.SyntaxKind.ExclamationToken &&
-          ts.isIdentifier(condition.operand)
-        ) {
-          varName = condition.operand.getText();
-        }
-
-        if (ts.isBinaryExpression(condition)) {
-          const op = condition.operatorToken.kind;
-          if (
-            (op === ts.SyntaxKind.EqualsEqualsEqualsToken ||
-              op === ts.SyntaxKind.EqualsEqualsToken) &&
-            ts.isIdentifier(condition.left)
-          ) {
-            const right = condition.right.getText();
-            if (right === "null" || right === "undefined") {
-              varName = condition.left.getText();
-            }
-          }
-        }
-
-        if (varName) {
-          const thenStatement = node.thenStatement;
-          const firstThenStatement = ts.isBlock(thenStatement)
-            ? thenStatement.statements[0]
-            : undefined;
-          const isEarlyReturn =
-            (ts.isBlock(thenStatement) &&
-              thenStatement.statements.length === 1 &&
-              firstThenStatement !== undefined &&
-              ts.isReturnStatement(firstThenStatement)) ||
-            ts.isReturnStatement(thenStatement);
-
-          if (isEarlyReturn) {
-            narrowedVars.add(varName);
-          }
-        }
-      }
-
-      ts.forEachChild(node, collectNarrowings);
+    function isFunctionLike(node: ts.Node): boolean {
+      return (
+        ts.isFunctionDeclaration(node) ||
+        ts.isMethodDeclaration(node) ||
+        ts.isArrowFunction(node) ||
+        ts.isFunctionExpression(node)
+      );
     }
 
-    function findViolations(node: ts.Node) {
-      if (ts.isAwaitExpression(node)) {
-        narrowedVars.forEach((varName) => awaitedAfterNarrow.add(varName));
+    function isImmediatelyInvokedFunction(node: ts.Node): boolean {
+      let current: ts.Node = node;
+      while (ts.isParenthesizedExpression(current.parent)) {
+        current = current.parent;
       }
 
-      if (ts.isPropertyAccessExpression(node) && awaitedAfterNarrow.size > 0) {
-        const root = getChainRoot(node.expression);
+      return ts.isCallExpression(current.parent) && current.parent.expression === current;
+    }
+
+    function collectCallableBodies(node: ts.Node) {
+      if (ts.isFunctionDeclaration(node)) {
+        const symbol = node.name ? checker.getSymbolAtLocation(node.name) : undefined;
+        if (symbol && node.body) {
+          callableBodies.set(symbol, node.body);
+          collectCallableBodies(node.body);
+        }
+        return;
+      }
+
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isIdentifier(node.name) &&
+        node.initializer &&
+        (ts.isFunctionExpression(node.initializer) || ts.isArrowFunction(node.initializer))
+      ) {
+        const symbol = checker.getSymbolAtLocation(node.name);
+        if (symbol) {
+          callableBodies.set(symbol, node.initializer.body);
+          collectCallableBodies(node.initializer.body);
+        }
+        return;
+      }
+
+      if (isFunctionLike(node)) {
+        return;
+      }
+
+      ts.forEachChild(node, collectCallableBodies);
+    }
+
+    function getEarlyReturnGuardIdentifier(node: ts.IfStatement): ts.Identifier | null {
+      const condition = unwrapExpression(node.expression);
+      let identifier: ts.Identifier | null = null;
+
+      function isNullishLiteral(candidate: ts.Node): boolean {
+        return (
+          candidate.kind === ts.SyntaxKind.NullKeyword ||
+          (ts.isIdentifier(candidate) && candidate.text === "undefined")
+        );
+      }
+
+      if (
+        ts.isPrefixUnaryExpression(condition) &&
+        condition.operator === ts.SyntaxKind.ExclamationToken &&
+        ts.isIdentifier(unwrapExpression(condition.operand))
+      ) {
+        identifier = unwrapExpression(condition.operand) as ts.Identifier;
+      }
+
+      if (ts.isBinaryExpression(condition)) {
+        const op = condition.operatorToken.kind;
         if (
-          ts.isIdentifier(root) &&
-          awaitedAfterNarrow.has(root.getText()) &&
+          op === ts.SyntaxKind.EqualsEqualsEqualsToken ||
+          op === ts.SyntaxKind.EqualsEqualsToken
+        ) {
+          const left = unwrapExpression(condition.left);
+          const right = unwrapExpression(condition.right);
+          if (ts.isIdentifier(left) && isNullishLiteral(right)) {
+            identifier = left;
+          } else if (ts.isIdentifier(right) && isNullishLiteral(left)) {
+            identifier = right;
+          }
+        }
+      }
+
+      if (!identifier) {
+        return null;
+      }
+
+      const isEarlyExit = (statement: ts.Statement): boolean => {
+        if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) {
+          return true;
+        }
+
+        if (ts.isBlock(statement)) {
+          const lastStatement = statement.statements.at(-1);
+          return lastStatement ? isEarlyExit(lastStatement) : false;
+        }
+
+        return (
+          ts.isIfStatement(statement) &&
+          !!statement.elseStatement &&
+          isEarlyExit(statement.thenStatement) &&
+          isEarlyExit(statement.elseStatement)
+        );
+      };
+
+      if (!isEarlyExit(node.thenStatement)) {
+        return null;
+      }
+
+      return identifier;
+    }
+
+    function getEarlyReturnGuard(node: ts.IfStatement) {
+      const identifier = getEarlyReturnGuardIdentifier(node);
+      if (!identifier) {
+        return null;
+      }
+
+      try {
+        const symbol = checker.getSymbolAtLocation(identifier);
+        if (!symbol) {
+          return null;
+        }
+
+        const existing = narrowedVarTypes.get(symbol);
+        if (existing) {
+          return {
+            symbol,
+            name: existing.name,
+            type: existing.type,
+          };
+        }
+
+        const type = checker.getTypeAtLocation(identifier);
+        if (!isNullable(type)) {
+          return null;
+        }
+
+        return {
+          symbol,
+          name: identifier.getText(),
+          type: checker.typeToString(type),
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    function getAssignmentTargets(node: ts.Node): ts.Symbol[] {
+      if (
+        !ts.isBinaryExpression(node) ||
+        node.operatorToken.kind < ts.SyntaxKind.FirstAssignment ||
+        node.operatorToken.kind > ts.SyntaxKind.LastAssignment
+      ) {
+        return [];
+      }
+
+      const symbols: ts.Symbol[] = [];
+
+      function collectIdentifierTargets(target: ts.Node) {
+        if (ts.isIdentifier(target)) {
+          const symbol = checker.getSymbolAtLocation(target);
+          if (symbol) {
+            symbols.push(symbol);
+          }
+          return;
+        }
+
+        if (ts.isArrayLiteralExpression(target)) {
+          target.elements.forEach(collectIdentifierTargets);
+          return;
+        }
+
+        if (ts.isObjectLiteralExpression(target)) {
+          for (const property of target.properties) {
+            if (ts.isShorthandPropertyAssignment(property)) {
+              collectIdentifierTargets(property.name);
+            } else if (ts.isPropertyAssignment(property)) {
+              collectIdentifierTargets(property.initializer);
+            } else if (ts.isSpreadAssignment(property)) {
+              collectIdentifierTargets(property.expression);
+            }
+          }
+        }
+      }
+
+      collectIdentifierTargets(node.left);
+      return symbols;
+    }
+
+    function unwrapExpression(expression: ts.Expression): ts.Expression {
+      let current = expression;
+      while (ts.isParenthesizedExpression(current)) {
+        current = current.expression;
+      }
+      return current;
+    }
+
+    function isOutermostPropertyAccess(node: ts.PropertyAccessExpression): boolean {
+      return !(
+        ts.isPropertyAccessExpression(node.parent) &&
+        node.parent.questionDotToken === undefined
+      );
+    }
+
+    function analyzeCalledClosure(
+      symbol: ts.Symbol,
+      activeAfterAwait: Set<ts.Symbol>,
+      activeNarrowings: Set<ts.Symbol>,
+      assignedSymbols: Set<ts.Symbol>,
+    ) {
+      const calledBody = callableBodies.get(symbol);
+      if (!calledBody || callStack.has(symbol)) {
+        return;
+      }
+
+      callStack.add(symbol);
+      const closureAssignments = new Set<ts.Symbol>();
+      if (ts.isBlock(calledBody)) {
+        findViolationsInBlock(
+          calledBody,
+          new Set(activeAfterAwait),
+          new Set(activeNarrowings),
+          closureAssignments,
+        );
+      } else {
+        findViolations(
+          calledBody,
+          new Set(activeAfterAwait),
+          new Set(activeNarrowings),
+          closureAssignments,
+        );
+      }
+      callStack.delete(symbol);
+      closureAssignments.forEach((assignedSymbol) => {
+        assignedSymbols.add(assignedSymbol);
+        activeAfterAwait.delete(assignedSymbol);
+        activeNarrowings.delete(assignedSymbol);
+      });
+    }
+
+    function findViolations(
+      node: ts.Node,
+      activeAfterAwait: Set<ts.Symbol>,
+      activeNarrowings: Set<ts.Symbol>,
+      assignedSymbols: Set<ts.Symbol>,
+    ) {
+      if (isFunctionLike(node)) {
+        if (isImmediatelyInvokedFunction(node)) {
+          const iifeAssignments = new Set<ts.Symbol>();
+          ts.forEachChild(node, (child) =>
+            findViolations(
+              child,
+              new Set(activeAfterAwait),
+              new Set(activeNarrowings),
+              iifeAssignments,
+            ),
+          );
+          iifeAssignments.forEach((assignedSymbol) => {
+            assignedSymbols.add(assignedSymbol);
+            activeAfterAwait.delete(assignedSymbol);
+            activeNarrowings.delete(assignedSymbol);
+          });
+        }
+        return;
+      }
+
+      if (ts.isBlock(node)) {
+        const isConditionalBranch =
+          ts.isIfStatement(node.parent) &&
+          (node.parent.thenStatement === node || node.parent.elseStatement === node);
+        const blockAfterAwait = new Set(activeAfterAwait);
+        const blockNarrowings = new Set(activeNarrowings);
+        const blockAssignments = new Set<ts.Symbol>();
+        findViolationsInBlock(
+          node,
+          blockAfterAwait,
+          blockNarrowings,
+          blockAssignments,
+        );
+
+        if (isConditionalBranch) {
+          blockAfterAwait.forEach((symbol) => activeAfterAwait.add(symbol));
+          blockAssignments.forEach((assignedSymbol) => {
+            assignedSymbols.add(assignedSymbol);
+            // A conditional assignment breaks narrowing, but sibling paths may still be post-await.
+            activeNarrowings.delete(assignedSymbol);
+          });
+          return;
+        }
+
+        activeAfterAwait.clear();
+        blockAfterAwait.forEach((symbol) => activeAfterAwait.add(symbol));
+        activeNarrowings.clear();
+        blockNarrowings.forEach((symbol) => activeNarrowings.add(symbol));
+        blockAssignments.forEach((assignedSymbol) => assignedSymbols.add(assignedSymbol));
+        return;
+      }
+
+      const assignmentTargets = getAssignmentTargets(node);
+
+      if (ts.isAwaitExpression(node)) {
+        ts.forEachChild(node, (child) =>
+          findViolations(child, activeAfterAwait, activeNarrowings, assignedSymbols),
+        );
+        activeNarrowings.forEach((symbol) => activeAfterAwait.add(symbol));
+        return;
+      }
+
+      if (ts.isPropertyAccessExpression(node) && activeAfterAwait.size > 0) {
+        const root = getChainRoot(node.expression);
+        const rootSymbol = ts.isIdentifier(root)
+          ? checker.getSymbolAtLocation(root)
+          : undefined;
+        if (
+          rootSymbol &&
+          activeAfterAwait.has(rootSymbol) &&
           !isOptionalAccess(node) &&
           !hasNonNullAssertion(node) &&
-          !isSubChainDuplicate(node, checker)
+          !isSubChainDuplicate(node, checker) &&
+          isOutermostPropertyAccess(node)
         ) {
           try {
-            const originalType = checker.getTypeAtLocation(root);
-            if (isNullable(originalType)) {
-              const { line, col } = pos(sf, node);
-              const varName = root.getText();
-              results.push({
-                file: sf.fileName,
-                line,
-                col,
-                expr: node.getText(),
-                rootExpr: varName,
-                type: checker.typeToString(originalType),
-                pattern: "Unsafe access after await",
-                confidence: "MEDIUM",
-                crashPath: [
-                  `${varName} narrowed from ${checker.typeToString(originalType)} to defined`,
-                  "await suspended execution - external state may have changed",
-                  `${varName} may be undefined again after resuming`,
-                  `${node.getText()} -> Cannot read properties of undefined`,
-                ],
-              });
+            const { line, col } = pos(sf, node);
+            const originalType = narrowedVarTypes.get(rootSymbol);
+            if (!originalType) {
+              ts.forEachChild(node, (child) =>
+                findViolations(child, activeAfterAwait, activeNarrowings, assignedSymbols),
+              );
+              return;
             }
+            results.push({
+              file: sf.fileName,
+              line,
+              col,
+              expr: node.getText(),
+              rootExpr: originalType.name,
+              type: originalType.type,
+              pattern: "Unsafe access after await",
+              confidence: "MEDIUM",
+              crashPath: [
+                `${originalType.name} narrowed from ${originalType.type} to defined`,
+                "await suspended execution - external state may have changed",
+                `${originalType.name} may be undefined again after resuming`,
+                `${node.getText()} -> Cannot read properties of undefined`,
+              ],
+            });
           } catch {
             // Ignore nodes where type resolution fails.
           }
         }
       }
 
-      ts.forEachChild(node, findViolations);
+      if (
+        ts.isCallExpression(node) &&
+        ts.isIdentifier(node.expression) &&
+        (activeAfterAwait.size > 0 || activeNarrowings.size > 0)
+      ) {
+        const symbol = checker.getSymbolAtLocation(node.expression);
+        if (symbol) {
+          analyzeCalledClosure(
+            symbol,
+            activeAfterAwait,
+            activeNarrowings,
+            assignedSymbols,
+          );
+        }
+      }
+
+      ts.forEachChild(node, (child) =>
+        findViolations(child, activeAfterAwait, activeNarrowings, assignedSymbols),
+      );
+
+      for (const assignmentTarget of assignmentTargets) {
+        assignedSymbols.add(assignmentTarget);
+        activeNarrowings.delete(assignmentTarget);
+        activeAfterAwait.delete(assignmentTarget);
+      }
     }
 
-    collectNarrowings(body);
-    findViolations(body);
+    function findViolationsInBlock(
+      block: ts.Block,
+      activeAfterAwait = new Set<ts.Symbol>(),
+      activeNarrowings = new Set<ts.Symbol>(),
+      assignedSymbols = new Set<ts.Symbol>(),
+    ) {
+      for (const statement of block.statements) {
+        findViolations(statement, activeAfterAwait, activeNarrowings, assignedSymbols);
+
+        if (ts.isIfStatement(statement)) {
+          const guard = getEarlyReturnGuard(statement);
+          if (guard) {
+            narrowedVarTypes.set(guard.symbol, {
+              name: guard.name,
+              type: guard.type,
+            });
+            activeAfterAwait.delete(guard.symbol);
+            activeNarrowings.add(guard.symbol);
+          }
+        }
+      }
+    }
+
+    collectCallableBodies(body);
+    findViolationsInBlock(body);
   }
 
   function visit(node: ts.Node) {
