@@ -568,9 +568,16 @@ export function detectUnsafeAccessAfterAwait(
           return true;
         }
 
+        if (ts.isBlock(statement)) {
+          const lastStatement = statement.statements.at(-1);
+          return lastStatement ? isEarlyExit(lastStatement) : false;
+        }
+
         return (
-          ts.isBlock(statement) &&
-          statement.statements.some((child) => isEarlyExit(child))
+          ts.isIfStatement(statement) &&
+          !!statement.elseStatement &&
+          isEarlyExit(statement.thenStatement) &&
+          isEarlyExit(statement.elseStatement)
         );
       };
 
@@ -617,17 +624,46 @@ export function detectUnsafeAccessAfterAwait(
       }
     }
 
-    function getAssignmentTarget(node: ts.Node): ts.Symbol | null {
+    function getAssignmentTargets(node: ts.Node): ts.Symbol[] {
       if (
         !ts.isBinaryExpression(node) ||
         node.operatorToken.kind < ts.SyntaxKind.FirstAssignment ||
-        node.operatorToken.kind > ts.SyntaxKind.LastAssignment ||
-        !ts.isIdentifier(node.left)
+        node.operatorToken.kind > ts.SyntaxKind.LastAssignment
       ) {
-        return null;
+        return [];
       }
 
-      return checker.getSymbolAtLocation(node.left) ?? null;
+      const symbols: ts.Symbol[] = [];
+
+      function collectIdentifierTargets(target: ts.Node) {
+        if (ts.isIdentifier(target)) {
+          const symbol = checker.getSymbolAtLocation(target);
+          if (symbol) {
+            symbols.push(symbol);
+          }
+          return;
+        }
+
+        if (ts.isArrayLiteralExpression(target)) {
+          target.elements.forEach(collectIdentifierTargets);
+          return;
+        }
+
+        if (ts.isObjectLiteralExpression(target)) {
+          for (const property of target.properties) {
+            if (ts.isShorthandPropertyAssignment(property)) {
+              collectIdentifierTargets(property.name);
+            } else if (ts.isPropertyAssignment(property)) {
+              collectIdentifierTargets(property.initializer);
+            } else if (ts.isSpreadAssignment(property)) {
+              collectIdentifierTargets(property.expression);
+            }
+          }
+        }
+      }
+
+      collectIdentifierTargets(node.left);
+      return symbols;
     }
 
     function isOutermostPropertyAccess(node: ts.PropertyAccessExpression): boolean {
@@ -649,13 +685,9 @@ export function detectUnsafeAccessAfterAwait(
 
       callStack.add(symbol);
       if (ts.isBlock(calledBody)) {
-        findViolationsInBlock(
-          calledBody,
-          new Set(activeAfterAwait),
-          new Set(activeNarrowings),
-        );
+        findViolationsInBlock(calledBody, activeAfterAwait, activeNarrowings);
       } else {
-        findViolations(calledBody, new Set(activeAfterAwait), new Set(activeNarrowings));
+        findViolations(calledBody, activeAfterAwait, activeNarrowings);
       }
       callStack.delete(symbol);
     }
@@ -694,10 +726,14 @@ export function detectUnsafeAccessAfterAwait(
         return;
       }
 
-      const assignmentTarget = getAssignmentTarget(node);
+      const assignmentTargets = getAssignmentTargets(node);
 
       if (ts.isAwaitExpression(node)) {
+        ts.forEachChild(node, (child) =>
+          findViolations(child, activeAfterAwait, activeNarrowings),
+        );
         activeNarrowings.forEach((symbol) => activeAfterAwait.add(symbol));
+        return;
       }
 
       if (ts.isPropertyAccessExpression(node) && activeAfterAwait.size > 0) {
@@ -759,7 +795,7 @@ export function detectUnsafeAccessAfterAwait(
         findViolations(child, activeAfterAwait, activeNarrowings),
       );
 
-      if (assignmentTarget) {
+      for (const assignmentTarget of assignmentTargets) {
         activeNarrowings.delete(assignmentTarget);
         activeAfterAwait.delete(assignmentTarget);
       }
