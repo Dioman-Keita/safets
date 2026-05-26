@@ -63,6 +63,59 @@ function testDoctorIncludeTests() {
   assert(output.includes("Unprotected JSON.parse"), "Expected doctor --include-tests to include test-file findings", output);
 }
 
+function testDoctorJson() {
+  const projectDir = createProjectFromFixture();
+  const result = runCli(["doctor", "--json"], projectDir);
+  assert(result.status === 0, "Expected doctor --json to exit with code 0", result.stderr);
+  assert(result.stderr === "", "Expected doctor --json not to write stderr", result.stderr);
+
+  const report = JSON.parse(result.stdout);
+  assert(report.schemaVersion === 1, "Expected JSON report schema version 1", result.stdout);
+  assert(report.command === "doctor", "Expected JSON report command to be doctor", result.stdout);
+  assert(report.options.includeTests === false, "Expected JSON report to include scan options", result.stdout);
+  assert(report.summary.total >= 1, "Expected JSON report to include crash summary", result.stdout);
+  assert(Array.isArray(report.crashes), "Expected JSON report to include crashes array", result.stdout);
+  assert(report.crashes[0].file && !path.isAbsolute(report.crashes[0].file), "Expected JSON file paths to be project-relative", result.stdout);
+  assert(report.crashes[0].confidence, "Expected JSON crashes to include confidence", result.stdout);
+  assert(report.crashes[0].status === "current", "Expected JSON crashes to include baseline status", result.stdout);
+}
+
+function testDoctorJsonFailOnNew() {
+  const projectDir = createProjectFromFixture();
+  fs.writeFileSync(
+    path.join(projectDir, ".safets-baseline.json"),
+    JSON.stringify({
+      version: "0.8.0",
+      date: new Date().toISOString(),
+      options: { includeTests: false },
+      crashes: [],
+    }, null, 2),
+  );
+
+  const result = runCli(["doctor", "--json", "--fail-on-new"], projectDir);
+  assert(result.status === 1, "Expected doctor --json --fail-on-new to exit with code 1", result.stdout);
+
+  const report = JSON.parse(result.stdout);
+  assert(report.baseline.present === true, "Expected JSON report to include baseline presence", result.stdout);
+  assert(report.baseline.compatible === true, "Expected JSON report to mark compatible baseline", result.stdout);
+  assert(report.summary.new >= 1, "Expected JSON report to include new crash count", result.stdout);
+  assert(report.crashes.every((crash) => crash.status === "new"), "Expected JSON crashes to be marked new", result.stdout);
+}
+
+function testDebtJson() {
+  const projectDir = createProjectFromFixture();
+  const baselineResult = runCli(["baseline"], projectDir);
+  assert(baselineResult.status === 0, "Expected setup baseline command to succeed", baselineResult.stdout);
+
+  const result = runCli(["debt", "--json"], projectDir);
+  assert(result.status === 0, "Expected debt --json to exit with code 0", result.stderr);
+
+  const report = JSON.parse(result.stdout);
+  assert(report.command === "debt", "Expected JSON report command to be debt", result.stdout);
+  assert(Array.isArray(report.debt), "Expected JSON report to include debt array", result.stdout);
+  assert(report.debt.some((entry) => entry.delta === 0), "Expected debt JSON to include baseline deltas", result.stdout);
+}
+
 function testFix() {
   const projectDir = createProjectFromFixture();
   const result = runCli(["fix"], projectDir);
@@ -87,6 +140,19 @@ function testBaseline() {
   assert(baseline.crashes.length >= 1, "Expected baseline file to record fixture crashes");
 }
 
+function testBaselineJson() {
+  const projectDir = createProjectFromFixture();
+  const result = runCli(["baseline", "--json"], projectDir);
+  const baselinePath = path.join(projectDir, ".safets-baseline.json");
+  assert(result.status === 0, "Expected baseline --json to exit with code 0", result.stderr);
+  assert(fs.existsSync(baselinePath), "Expected baseline --json to create .safets-baseline.json");
+
+  const report = JSON.parse(result.stdout);
+  assert(report.command === "baseline", "Expected JSON report command to be baseline", result.stdout);
+  assert(report.baseline.present === true, "Expected baseline --json to report saved baseline as present", result.stdout);
+  assert(report.baseline.saved.crashCount >= 1, "Expected JSON report to include saved baseline state", result.stdout);
+}
+
 function testDebt() {
   const projectDir = createProjectFromFixture();
   const baselineResult = runCli(["baseline"], projectDir);
@@ -103,9 +169,13 @@ function testDebt() {
 try {
   testDoctor();
   testDoctorIncludeTests();
+  testDoctorJson();
+  testDoctorJsonFailOnNew();
   testFix();
   testBaseline();
+  testBaselineJson();
   testDebt();
+  testDebtJson();
   console.log("CLI integration checks passed.");
 } finally {
   cleanupTempDirs();

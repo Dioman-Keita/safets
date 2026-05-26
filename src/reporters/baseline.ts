@@ -10,7 +10,8 @@ export function saveBaseline(
   crashes: CrashReport[],
   root: string,
   programResult: ProgramResult,
-) {
+  options: { quiet?: boolean } = {},
+): Baseline {
   const baseline: Baseline = {
     version: "0.8.0",
     date: new Date().toISOString(),
@@ -28,10 +29,14 @@ export function saveBaseline(
     JSON.stringify(baseline, null, 2),
   );
 
-  console.log(c.green(`\nOK Baseline saved - ${crashes.length} known crash(es) recorded.`));
-  console.log(c.dim(`  File: ${BASELINE_FILE}`));
-  console.log(c.dim(`  Options: includeTests=${programResult.includeTests}`));
-  console.log(c.dim("  Commit this file to version control for CI to work correctly.\n"));
+  if (!options.quiet) {
+    console.log(c.green(`\nOK Baseline saved - ${crashes.length} known crash(es) recorded.`));
+    console.log(c.dim(`  File: ${BASELINE_FILE}`));
+    console.log(c.dim(`  Options: includeTests=${programResult.includeTests}`));
+    console.log(c.dim("  Commit this file to version control for CI to work correctly.\n"));
+  }
+
+  return baseline;
 }
 
 export function loadBaseline(root: string): Baseline | null {
