@@ -48,13 +48,9 @@ export function loadProgramRobust(
   const warnings: string[] = [];
 
   try {
-    const configPath = ts.findConfigFile(
-      projectRoot,
-      ts.sys.fileExists,
-      "tsconfig.json",
-    );
+    const configPath = path.join(projectRoot, "tsconfig.json");
 
-    if (configPath) {
+    if (ts.sys.fileExists(configPath)) {
       const { config, error } = ts.readConfigFile(configPath, ts.sys.readFile);
 
       if (!error) {

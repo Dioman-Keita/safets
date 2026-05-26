@@ -34,7 +34,9 @@ function createProject(files) {
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "safets-cli-"));
   tempDirs.add(projectDir);
   for (const [fileName, content] of Object.entries(files)) {
-    fs.writeFileSync(path.join(projectDir, fileName), content);
+    const filePath = path.join(projectDir, fileName);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, content);
   }
   return projectDir;
 }
@@ -136,6 +138,29 @@ function testFixNoSuggestionsMessage() {
   );
 }
 
+function testDoesNotUseParentTsconfig() {
+  const parentDir = createProject({
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: { strict: true },
+      files: ["safe.ts"],
+    }),
+    "safe.ts": "const user = { name: 'Ada' };\nconsole.log(user.name);\n",
+    "child/app.ts": "const user: { name: string } | undefined = undefined;\nconsole.log(user.name);\n",
+  });
+  const childDir = path.join(parentDir, "child");
+
+  const result = runCli(["doctor", "--json"], childDir);
+  assert(result.status === 0, "Expected child project scan to exit with code 0", result.stderr);
+
+  const report = JSON.parse(result.stdout);
+  assert(report.summary.total >= 1, "Expected child project files to be analyzed", result.stdout);
+  assert(
+    report.crashes.some((crash) => crash.file === "app.ts"),
+    "Expected SafeTS not to use parent tsconfig outside the project root",
+    result.stdout,
+  );
+}
+
 try {
   testHelp();
   testVersion();
@@ -145,6 +170,7 @@ try {
   testMismatchFailOnNew();
   testInvalidFlagCombination();
   testFixNoSuggestionsMessage();
+  testDoesNotUseParentTsconfig();
   console.log("CLI contract checks passed.");
 } finally {
   cleanupTempDirs();

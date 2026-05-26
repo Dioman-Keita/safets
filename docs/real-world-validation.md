@@ -59,21 +59,22 @@ git config --global core.longpaths true
 | Repository | Commit | TS/TSX files | Result | Duration | Fallback | Findings | Warnings | Top patterns |
 | --- | --- | ---: | --- | ---: | --- | ---: | ---: | --- |
 | `google-gemini/gemini-cli` | `85563da` | 2108 | ok | 12s | false | 247 | 1 | Non-null assertion on nullable: 129; Unsafe access after await: 46; Unprotected JSON.parse: 34; Unsafe property access: 29; Unsafe process.env access: 7; Unsafe Promise.all destructuring: 2 |
-| `vitejs/vite` | `b089c2b` | 563 | ok | 2s | false | 0 | 0 | none |
+| `vitejs/vite` | `b089c2b` | 563 | ok | 5s | false | 342 | 1 | Non-null assertion on nullable: 134; Unsafe property access: 97; Unsafe process.env access: 45; Unsafe array index access: 24; Unprotected JSON.parse: 23; Unsafe Map/Record access: 11; Unsafe destructuring: 4; Unsafe access after await: 3; Unsafe Promise.all destructuring: 1 |
 | `prisma/prisma` | `42f9102` | 2701 | ok | 9s | false | 267 | 1 | Unsafe process.env access: 97; Non-null assertion on nullable: 67; Unsafe property access: 66; Unprotected JSON.parse: 24; Unsafe access after await: 10; Unsafe Promise.all destructuring: 1; Unsafe array index access: 1; Unsafe Map/Record access: 1 |
 | `supabase/supabase` | `108a7c2c` | 6669 | ok | 13s | false | 157 | 1 | Unsafe process.env access: 110; Unprotected JSON.parse: 47 |
-| `vitest-dev/vitest` | `152750e` | 2038 | ok | 2s | false | 0 | 0 | none |
+| `vitest-dev/vitest` | `152750e` | 2038 | ok | 8s | false | 378 | 1 | Non-null assertion on nullable: 147; Unsafe property access: 92; Unsafe process.env access: 49; Unsafe array index access: 40; Unsafe access after await: 23; Unprotected JSON.parse: 16; Unsafe Map/Record access: 9; Unsafe destructuring: 2 |
 | `withastro/astro` | `1e49163` | 2094 | ok | 9s | false | 394 | 1 | Non-null assertion on nullable: 151; Unsafe property access: 119; Unsafe process.env access: 43; Unsafe array index access: 37; Unprotected JSON.parse: 23; Unsafe access after await: 16; Unsafe Map/Record access: 3; Unsafe destructuring: 2 |
 
 ## Observations
 
 - SafeTS completed successfully on all six repositories without installing dependencies.
 - No repository fell back to AST-only mode.
-- Vite and Vitest produced zero findings in default mode, which is a useful low-noise signal.
+- Vite and Vitest do not expose a root `tsconfig.json`, so SafeTS used direct TypeScript scanning for them.
 - Supabase and Prisma show that `process.env` findings dominate in large real repos.
 - Gemini CLI and Astro show that `Non-null assertion on nullable` and `Unsafe access after await` need careful false-positive review before teams use these patterns as hard CI gates.
 - Supabase filtered 3954 generated or bundled tsconfig inputs, which confirms that generated-file filtering matters in real monorepos.
-- Astro did not expose a usable root `tsconfig.json` to SafeTS and used direct TypeScript scanning instead. This is not fallback mode, but it is a clear input for workspace hardening.
+- Vite, Vitest, and Astro did not expose a usable root `tsconfig.json` to SafeTS and used direct TypeScript scanning instead. This is not fallback mode, but it is a clear input for workspace hardening.
+- This validation uncovered and fixed a project-boundary bug: SafeTS previously allowed TypeScript config discovery to climb outside the requested project root, which could accidentally analyze a parent repository instead of the target project.
 
 ## Follow-Up
 
