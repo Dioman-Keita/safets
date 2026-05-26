@@ -52,6 +52,7 @@ function testHelp() {
   assert(result.status === 0, "Expected --help to exit with code 0", output);
   assert(output.includes("Usage:"), "Expected --help output to include Usage", output);
   assert(output.includes("Exit codes:"), "Expected --help output to include exit code documentation", output);
+  assert(output.includes("--json"), "Expected --help output to document JSON output", output);
 }
 
 function testVersion() {

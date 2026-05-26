@@ -2,12 +2,13 @@
 
 import { createRequire } from "module";
 import { analyze, loadProgramRobust } from "./analyze.ts";
-import { checkBaselineOptionsMismatch, loadBaseline, saveBaseline } from "./reporters/baseline.ts";
+import { checkBaselineOptionsMismatch, isNew, loadBaseline, saveBaseline } from "./reporters/baseline.ts";
 import { printBaselineMismatchWarning, printDebt, printDoctor, printFix } from "./reporters/index.ts";
+import { printJsonReport } from "./reporters/json.ts";
 import { c } from "./utils/colors.ts";
 
 const COMMANDS = new Set(["doctor", "fix", "debt", "baseline"]);
-const FLAGS = new Set(["--help", "--version", "--fail-on-new", "--baseline", "--include-tests"]);
+const FLAGS = new Set(["--help", "--version", "--fail-on-new", "--baseline", "--include-tests", "--json"]);
 
 function getVersion(): string {
   const require = createRequire(import.meta.url);
@@ -37,6 +38,7 @@ function printHelp(version: string) {
   console.log("  --include-tests  Include test files in the analysis");
   console.log("  --baseline       Save a baseline after `doctor` finishes");
   console.log("  --fail-on-new    Exit with code 1 when `doctor` finds crashes not in the baseline");
+  console.log("  --json           Print machine-readable JSON instead of human output");
   console.log("  --help           Show this help message");
   console.log("  --version        Show the installed SafeTS version\n");
   console.log("Exit codes:");
@@ -82,8 +84,11 @@ if (!COMMANDS.has(command)) {
 const failOnNew = args.includes("--fail-on-new");
 const withBase = args.includes("--baseline");
 const includeTests = args.includes("--include-tests");
+const jsonOutput = args.includes("--json");
 
-printBanner(version, includeTests);
+if (!jsonOutput) {
+  printBanner(version, includeTests);
+}
 
 if (command !== "doctor" && failOnNew) {
   console.error(c.red("x `--fail-on-new` can only be used with `doctor`.\n"));
@@ -101,6 +106,42 @@ const baseline = loadBaseline(root);
 const baselineMismatch = baseline
   ? checkBaselineOptionsMismatch(baseline, includeTests)
   : null;
+
+if (jsonOutput) {
+  const comparableBase = baselineMismatch ? null : baseline;
+  const newCrashes = comparableBase
+    ? crashes.filter((crash) => isNew(crash, comparableBase))
+    : crashes;
+  const failOnNewWillFail =
+    command === "doctor" &&
+    failOnNew &&
+    (baselineMismatch !== null || newCrashes.length > 0);
+  const shouldSaveBaseline =
+    command === "baseline" ||
+    (command === "doctor" && withBase && !failOnNewWillFail);
+  const savedBaseline = shouldSaveBaseline
+    ? saveBaseline(crashes, root, programResult, { quiet: true })
+    : null;
+
+  printJsonReport({
+    command: command as "doctor" | "fix" | "debt" | "baseline",
+    crashes,
+    root,
+    version,
+    includeTests,
+    failOnNew,
+    baseline,
+    baselineMismatch,
+    programResult,
+    savedBaseline,
+  });
+
+  if (failOnNewWillFail) {
+    process.exit(1);
+  }
+
+  process.exit(0);
+}
 
 switch (command) {
   case "debt":

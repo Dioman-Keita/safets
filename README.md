@@ -29,6 +29,7 @@ safets fix
 safets debt
 safets baseline
 safets doctor --fail-on-new
+safets doctor --json
 ```
 
 Common flags:
@@ -37,6 +38,28 @@ Common flags:
 safets --help
 safets --version
 ```
+
+### JSON Output
+
+Use `--json` when SafeTS output needs to be consumed by CI, scripts, bots, or editor integrations.
+
+```bash
+safets doctor --json
+safets debt --json
+safets fix --json
+safets baseline --json
+```
+
+The JSON schema is versioned with `schemaVersion`. Each report includes:
+
+- `safetsVersion`, `command`, and scan `options`
+- `program.fallback` and `program.warnings`
+- `baseline.present`, `baseline.compatible`, `baseline.mismatch`, and saved baseline metadata when relevant
+- `summary.total`, `summary.new`, `summary.known`, `summary.byPattern`, and fallback count
+- `debt[]` entries with current count, baseline count, and delta when a compatible baseline exists
+- `crashes[]` entries with project-relative file path, location, expression, root expression, type, pattern, confidence, baseline status, crash path, and suggestions
+
+`doctor --json --fail-on-new` still exits with code `1` when new crashes are found, but prints the JSON report first.
 
 ---
 
