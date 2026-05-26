@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .safets-baseline.json
+.tmp/
 *.js
 !bin/
 !bin/*.js

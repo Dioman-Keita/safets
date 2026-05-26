@@ -15,6 +15,7 @@
     "test:integration": "node scripts/test-cli-integration.mjs",
     "test:json": "node scripts/test-json-reporter.mjs",
     "test:smoke": "node ./dist/index.js doctor",
+    "validate:real-world": "node scripts/validate-real-world.mjs",
     "pack:check": "node scripts/check-pack.mjs",
     "ci:check": "npm run typecheck && npm test && npm run pack:check",
     "doctor": "node ./dist/index.js doctor",

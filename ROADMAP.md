@@ -99,5 +99,5 @@ Tracked issues:
 
 ## Current Status
 
-- Active milestone: Phase 1: NPM Ready
-- Immediate focus: ship a compiled CLI, clean tarball contents, and test coverage
+- Active milestone: Phase 2: Developer Adoption
+- Immediate focus: validate SafeTS on real TypeScript repositories, then harden baseline, debt, and workspace behavior
