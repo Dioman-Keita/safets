@@ -139,6 +139,10 @@ for (const target of targets) {
     exitCode: validation.exitCode ?? "n/a",
     durationMs: validation.durationMs,
     fallback: report?.program?.fallback ?? null,
+    strategy: report?.program?.strategy ?? null,
+    configFiles: report?.program?.configFiles ?? [],
+    rootFileCount: report?.program?.rootFileCount ?? null,
+    filteredFileCount: report?.program?.filteredFileCount ?? null,
     warnings: report?.program?.warnings ?? [],
     total: report?.summary?.total ?? null,
     byPattern: report?.summary?.byPattern ?? {},
@@ -154,14 +158,15 @@ console.log(JSON.stringify({
 }, null, 2));
 
 console.log("\n--- markdown ---\n");
-console.log("| Repository | Commit | TS/TSX files | Result | Duration | Fallback | Findings | Warnings | Top patterns |");
-console.log("| --- | --- | ---: | --- | ---: | --- | ---: | ---: | --- |");
+console.log("| Repository | Commit | TS/TSX files | Strategy | Result | Duration | Fallback | Findings | Warnings | Top patterns |");
+console.log("| --- | --- | ---: | --- | --- | ---: | --- | ---: | ---: | --- |");
 for (const result of results) {
   console.log(
     [
       markdownEscape(result.slug),
       markdownEscape(result.commit ?? "n/a"),
       result.tsFiles ?? "n/a",
+      markdownEscape(result.strategy ?? "n/a"),
       markdownEscape(result.status),
       `${Math.round((result.durationMs ?? 0) / 1000)}s`,
       result.fallback === null ? "n/a" : String(result.fallback),

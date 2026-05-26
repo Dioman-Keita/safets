@@ -98,3 +98,31 @@ export function findTsFiles(dir: string, files: string[] = []): string[] {
 
   return files;
 }
+
+export function findTsConfigFiles(dir: string, files: string[] = []): string[] {
+  try {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) {
+        continue;
+      }
+      if (SKIP_DIRS.has(entry.name)) {
+        continue;
+      }
+
+      const fullPath = path.join(dir, entry.name);
+      try {
+        if (entry.isDirectory()) {
+          findTsConfigFiles(fullPath, files);
+        } else if (entry.name === "tsconfig.json") {
+          files.push(normalizeFilePath(fullPath));
+        }
+      } catch {
+        // Skip unreadable entries.
+      }
+    }
+  } catch {
+    // Skip unreadable directories.
+  }
+
+  return files;
+}

@@ -13,8 +13,17 @@ import {
   detectUnsafePromiseAllDestructuring,
   detectUnsafePropertyAccess,
 } from "./detectors/index.ts";
-import { findTsFiles, isAnalyzableTsFile, isTestFile, normalizeFilePath } from "./utils/files.ts";
+import { findTsConfigFiles, findTsFiles, isAnalyzableTsFile, isTestFile, normalizeFilePath } from "./utils/files.ts";
 import type { CrashReport, ProgramResult } from "./utils/types.ts";
+
+const MIN_WORKSPACE_TSCONFIG_COVERAGE = 0.25;
+
+interface TsConfigProgramResult {
+  program: ts.Program | null;
+  fileNames: string[];
+  filteredFileNames: string[];
+  errors: readonly unknown[];
+}
 
 function filterProgramFiles(fileNames: string[]): string[] {
   return fileNames
@@ -41,55 +50,166 @@ function isCheckerUsable(program: ts.Program): boolean {
   }
 }
 
+function loadTsConfigProgram(configPath: string): TsConfigProgramResult {
+  try {
+    const { config, error } = ts.readConfigFile(configPath, ts.sys.readFile);
+    if (error) {
+      return {
+        program: null,
+        fileNames: [],
+        filteredFileNames: [],
+        errors: [error],
+      };
+    }
+
+    const { options, fileNames, errors } = ts.parseJsonConfigFileContent(
+      config,
+      ts.sys,
+      path.dirname(configPath),
+    );
+    const filteredFileNames = filterProgramFiles(fileNames);
+
+    if (filteredFileNames.length === 0) {
+      return { program: null, fileNames, filteredFileNames, errors };
+    }
+
+    const program = ts.createProgram(filteredFileNames, {
+      ...options,
+      noEmit: true,
+      skipLibCheck: true,
+    });
+
+    return { program, fileNames, filteredFileNames, errors };
+  } catch (error) {
+    return {
+      program: null,
+      fileNames: [],
+      filteredFileNames: [],
+      errors: [error],
+    };
+  }
+}
+
+function uniqueFiles(fileNames: string[]): string[] {
+  return [...new Set(fileNames.map((fileName) => normalizeFilePath(fileName)))];
+}
+
 export function loadProgramRobust(
   projectRoot: string,
   includeTests: boolean,
 ): ProgramResult {
   const warnings: string[] = [];
 
+  const rootConfigPath = path.join(projectRoot, "tsconfig.json");
+
   try {
-    const configPath = path.join(projectRoot, "tsconfig.json");
+    if (ts.sys.fileExists(rootConfigPath)) {
+      const result = loadTsConfigProgram(rootConfigPath);
 
-    if (ts.sys.fileExists(configPath)) {
-      const { config, error } = ts.readConfigFile(configPath, ts.sys.readFile);
-
-      if (!error) {
-        const { options, fileNames, errors } = ts.parseJsonConfigFileContent(
-          config,
-          ts.sys,
-          path.dirname(configPath),
-        );
-        const filteredFileNames = filterProgramFiles(fileNames);
-
-        if (filteredFileNames.length > 0) {
-          const program = ts.createProgram(filteredFileNames, {
-            ...options,
-            noEmit: true,
-            skipLibCheck: true,
-          });
-
-          if (isCheckerUsable(program)) {
-            if (errors.length > 0) {
-              warnings.push(
-                `tsconfig has ${errors.length} issue(s) - analysis may be partial`,
-              );
-            }
-            if (filteredFileNames.length !== fileNames.length) {
-              warnings.push(
-                `Filtered ${fileNames.length - filteredFileNames.length} generated or bundled file(s) from tsconfig inputs`,
-              );
-            }
-            return { program, fallback: false, warnings, includeTests };
-          }
-
-          warnings.push("TypeChecker built but unusable - trying fallback options");
+      if (result.program && isCheckerUsable(result.program)) {
+        if (result.errors.length > 0) {
+          warnings.push(
+            `tsconfig has ${result.errors.length} issue(s) - analysis may be partial`,
+          );
         }
-      } else {
-        warnings.push("tsconfig.json found but could not be parsed");
+        if (result.filteredFileNames.length !== result.fileNames.length) {
+          warnings.push(
+            `Filtered ${result.fileNames.length - result.filteredFileNames.length} generated or bundled file(s) from tsconfig inputs`,
+          );
+        }
+        return {
+          program: result.program,
+          fallback: false,
+          warnings,
+          includeTests,
+          strategy: "root-tsconfig",
+          configFiles: [rootConfigPath],
+          rootFileCount: result.filteredFileNames.length,
+          filteredFileCount: result.fileNames.length - result.filteredFileNames.length,
+        };
       }
+
+      warnings.push(
+        result.errors.length > 0
+          ? "tsconfig.json found but could not be parsed"
+          : "TypeChecker built but unusable - trying fallback options",
+      );
     }
   } catch (error) {
     warnings.push(`tsconfig load error: ${(error as Error).message}`);
+  }
+
+  try {
+    const workspaceConfigPaths = findTsConfigFiles(projectRoot)
+      .filter((configPath) => normalizeFilePath(configPath) !== normalizeFilePath(rootConfigPath))
+      .sort();
+    const allFileNames: string[] = [];
+    const allFilteredFileNames: string[] = [];
+    const usableConfigPaths: string[] = [];
+    let totalErrors = 0;
+
+    for (const configPath of workspaceConfigPaths) {
+      const result = loadTsConfigProgram(configPath);
+      totalErrors += result.errors.length;
+      if (result.filteredFileNames.length > 0) {
+        allFileNames.push(...result.fileNames);
+        allFilteredFileNames.push(...result.filteredFileNames);
+        usableConfigPaths.push(configPath);
+      }
+    }
+
+    const uniqueFilteredFileNames = uniqueFiles(allFilteredFileNames);
+    const directFiles = findTsFiles(projectRoot);
+    const workspaceCoverage =
+      directFiles.length > 0 ? uniqueFilteredFileNames.length / directFiles.length : 1;
+
+    if (uniqueFilteredFileNames.length > 0) {
+      if (workspaceCoverage < MIN_WORKSPACE_TSCONFIG_COVERAGE) {
+        warnings.push(
+          `Nested tsconfig files cover only ${uniqueFilteredFileNames.length}/${directFiles.length} TypeScript file(s) - scanning files directly instead`,
+        );
+      } else {
+        const program = ts.createProgram(uniqueFilteredFileNames, {
+          target: ts.ScriptTarget.ESNext,
+          module: ts.ModuleKind.NodeNext,
+          moduleResolution: ts.ModuleResolutionKind.NodeNext,
+          strict: true,
+          noUncheckedIndexedAccess: true,
+          skipLibCheck: true,
+          noEmit: true,
+        });
+
+        if (isCheckerUsable(program)) {
+          warnings.push(
+            `No root tsconfig.json found - using ${usableConfigPaths.length} nested tsconfig.json file(s)`,
+          );
+          if (totalErrors > 0) {
+            warnings.push(
+              `Nested tsconfig files have ${totalErrors} issue(s) - analysis may be partial`,
+            );
+          }
+          if (allFilteredFileNames.length !== allFileNames.length) {
+            warnings.push(
+              `Filtered ${allFileNames.length - allFilteredFileNames.length} generated or bundled file(s) from nested tsconfig inputs`,
+            );
+          }
+          return {
+            program,
+            fallback: false,
+            warnings,
+            includeTests,
+            strategy: "workspace-tsconfigs",
+            configFiles: usableConfigPaths,
+            rootFileCount: uniqueFilteredFileNames.length,
+            filteredFileCount: allFileNames.length - allFilteredFileNames.length,
+          };
+        }
+
+        warnings.push("Nested tsconfig scan produced unusable TypeChecker");
+      }
+    }
+  } catch (error) {
+    warnings.push(`Nested tsconfig scan error: ${(error as Error).message}`);
   }
 
   try {
@@ -107,7 +227,16 @@ export function loadProgramRobust(
 
       if (isCheckerUsable(program)) {
         warnings.push("No usable tsconfig found - scanning TypeScript files directly");
-        return { program, fallback: false, warnings, includeTests };
+        return {
+          program,
+          fallback: false,
+          warnings,
+          includeTests,
+          strategy: "direct-scan",
+          configFiles: [],
+          rootFileCount: files.length,
+          filteredFileCount: 0,
+        };
       }
 
       warnings.push("Direct scan produced unusable TypeChecker");
@@ -119,7 +248,16 @@ export function loadProgramRobust(
   }
 
   warnings.push("Running in AST-only fallback mode - results will be partial");
-  return { program: null, fallback: true, warnings, includeTests };
+  return {
+    program: null,
+    fallback: true,
+    warnings,
+    includeTests,
+    strategy: "fallback",
+    configFiles: [],
+    rootFileCount: 0,
+    filteredFileCount: 0,
+  };
 }
 
 function getUserSourceFiles(

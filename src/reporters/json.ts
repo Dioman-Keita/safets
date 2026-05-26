@@ -150,6 +150,12 @@ export function buildJsonReport(options: BuildJsonReportOptions) {
     program: {
       fallback: options.programResult.fallback,
       warnings: options.programResult.warnings,
+      strategy: options.programResult.strategy,
+      configFiles: options.programResult.configFiles.map((filePath) =>
+        toProjectRelativePath(options.root, filePath),
+      ),
+      rootFileCount: options.programResult.rootFileCount,
+      filteredFileCount: options.programResult.filteredFileCount,
     },
     baseline: {
       present: effectiveBaseline !== null,

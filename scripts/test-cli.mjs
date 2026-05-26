@@ -161,6 +161,59 @@ function testDoesNotUseParentTsconfig() {
   );
 }
 
+function testUsesNestedTsconfig() {
+  const projectDir = createProject({
+    "packages/app/tsconfig.json": JSON.stringify({
+      compilerOptions: { strict: true },
+      include: ["src/**/*.ts"],
+    }),
+    "packages/app/src/app.ts": "const user: { name: string } | undefined = undefined;\nconsole.log(user.name);\n",
+  });
+
+  const result = runCli(["doctor", "--json"], projectDir);
+  assert(result.status === 0, "Expected nested tsconfig project scan to exit with code 0", result.stderr);
+
+  const report = JSON.parse(result.stdout);
+  assert(report.program.strategy === "workspace-tsconfigs", "Expected nested tsconfig strategy", result.stdout);
+  assert(
+    report.program.configFiles.includes("packages/app/tsconfig.json"),
+    "Expected JSON output to include nested tsconfig path",
+    result.stdout,
+  );
+  assert(report.summary.total >= 1, "Expected nested tsconfig files to be analyzed", result.stdout);
+}
+
+function testSkipsLowCoverageNestedTsconfigs() {
+  const projectDir = createProject({
+    "packages/fixture/tsconfig.json": JSON.stringify({
+      compilerOptions: { strict: true },
+      include: ["src/**/*.ts"],
+    }),
+    "packages/fixture/src/safe.ts": "const user = { name: 'Ada' };\nconsole.log(user.name);\n",
+    "src/app-a.ts": "JSON.parse('{}');\n",
+    "src/app-b.ts": "JSON.parse('{}');\n",
+    "src/app-c.ts": "JSON.parse('{}');\n",
+    "src/app-d.ts": "JSON.parse('{}');\n",
+  });
+
+  const result = runCli(["doctor", "--json"], projectDir);
+  assert(result.status === 0, "Expected low coverage workspace scan to exit with code 0", result.stderr);
+
+  const report = JSON.parse(result.stdout);
+  assert(report.program.strategy === "direct-scan", "Expected direct scan when nested tsconfig coverage is too low", result.stdout);
+  assert(
+    report.program.warnings.some((warning) => warning.includes("cover only")),
+    "Expected low coverage warning",
+    result.stdout,
+  );
+  assert(report.summary.total >= 4, "Expected direct scan to analyze files outside low coverage tsconfig", result.stdout);
+  assert(
+    report.crashes.some((crash) => crash.file === "src/app-a.ts"),
+    "Expected direct scan findings to include files outside the low coverage tsconfig",
+    result.stdout,
+  );
+}
+
 try {
   testHelp();
   testVersion();
@@ -171,6 +224,8 @@ try {
   testInvalidFlagCombination();
   testFixNoSuggestionsMessage();
   testDoesNotUseParentTsconfig();
+  testUsesNestedTsconfig();
+  testSkipsLowCoverageNestedTsconfigs();
   console.log("CLI contract checks passed.");
 } finally {
   cleanupTempDirs();

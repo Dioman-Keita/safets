@@ -45,4 +45,8 @@ export interface ProgramResult {
   fallback: boolean;
   warnings: string[];
   includeTests: boolean;
+  strategy: "root-tsconfig" | "workspace-tsconfigs" | "direct-scan" | "fallback";
+  configFiles: string[];
+  rootFileCount: number;
+  filteredFileCount: number;
 }
