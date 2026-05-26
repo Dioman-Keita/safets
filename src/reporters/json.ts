@@ -28,9 +28,21 @@ function countByPattern(patterns: PatternName[]) {
 function makeOptionalChainSuggestion(expr: string): string {
   const lastDot = expr.lastIndexOf(".");
   if (lastDot === -1) {
-    return `${expr}?`;
+    const firstBracket = expr.indexOf("[");
+    if (firstBracket !== -1) {
+      return `${expr.slice(0, firstBracket)}?.${expr.slice(firstBracket)}`;
+    }
+    return expr;
   }
   return `${expr.slice(0, lastDot)}?.${expr.slice(lastDot + 1)}`;
+}
+
+function makeEnvSuggestion(rootExpr: string): string {
+  const match = rootExpr.match(
+    /process\.env(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[["']([^"']+)["']\])/,
+  );
+  const envName = match?.[1] ?? match?.[2] ?? "VAR_NAME";
+  return `const val = process.env.${envName} ?? "default";`;
 }
 
 function makeFixSuggestions(crash: CrashReport): string[] {
@@ -52,7 +64,7 @@ function makeFixSuggestions(crash: CrashReport): string[] {
       return [`try { ${crash.expr} } catch (e) { /* handle SyntaxError */ }`];
     case "Unsafe process.env access":
       return [
-        `const val = process.env.${crash.rootExpr.split(".")[2]} ?? "default";`,
+        makeEnvSuggestion(crash.rootExpr),
         "Validate all env vars at startup in a dedicated config.ts",
       ];
     case "Non-null assertion on nullable":
@@ -66,6 +78,8 @@ function makeFixSuggestions(crash: CrashReport): string[] {
       ];
     case "Unsafe Promise.all destructuring":
       return ["const [item] = await Promise.all([...]); if (!item) return;"];
+    default:
+      return [];
   }
 }
 
@@ -101,12 +115,12 @@ export function buildJsonReport(options: BuildJsonReportOptions) {
   }).map((pattern) => {
     const name = pattern as PatternName;
     const current = currentPatternCounts[name] ?? 0;
-    const baseline = baselinePatternCounts[name] ?? 0;
+    const baselineCount = baselinePatternCounts[name] ?? 0;
     return {
       pattern: name,
       current,
-      baseline: comparableBaseline ? baseline : null,
-      delta: comparableBaseline ? current - baseline : null,
+      baseline: comparableBaseline ? baselineCount : null,
+      delta: comparableBaseline ? current - baselineCount : null,
     };
   });
 

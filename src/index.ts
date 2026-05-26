@@ -112,9 +112,13 @@ if (jsonOutput) {
   const newCrashes = comparableBase
     ? crashes.filter((crash) => isNew(crash, comparableBase))
     : crashes;
+  const failOnNewWillFail =
+    command === "doctor" &&
+    failOnNew &&
+    (baselineMismatch !== null || newCrashes.length > 0);
   const shouldSaveBaseline =
     command === "baseline" ||
-    (command === "doctor" && withBase && !(failOnNew && baselineMismatch));
+    (command === "doctor" && withBase && !failOnNewWillFail);
   const savedBaseline = shouldSaveBaseline
     ? saveBaseline(crashes, root, programResult, { quiet: true })
     : null;
@@ -132,7 +136,7 @@ if (jsonOutput) {
     savedBaseline,
   });
 
-  if (command === "doctor" && failOnNew && (baselineMismatch || newCrashes.length > 0)) {
+  if (failOnNewWillFail) {
     process.exit(1);
   }
 

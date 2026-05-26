@@ -102,6 +102,26 @@ function testDoctorJsonFailOnNew() {
   assert(report.crashes.every((crash) => crash.status === "new"), "Expected JSON crashes to be marked new", result.stdout);
 }
 
+function testDoctorJsonFailOnNewDoesNotSaveBaseline() {
+  const projectDir = createProjectFromFixture();
+  const baselinePath = path.join(projectDir, ".safets-baseline.json");
+  const baselineContent = JSON.stringify({
+    version: "0.8.0",
+    date: new Date().toISOString(),
+    options: { includeTests: false },
+    crashes: [],
+  }, null, 2);
+  fs.writeFileSync(baselinePath, baselineContent);
+
+  const result = runCli(["doctor", "--json", "--baseline", "--fail-on-new"], projectDir);
+  assert(result.status === 1, "Expected failing JSON fail-on-new run to exit with code 1", result.stdout);
+  assert(
+    fs.readFileSync(baselinePath, "utf8") === baselineContent,
+    "Expected failing JSON fail-on-new run not to overwrite the baseline",
+    result.stdout,
+  );
+}
+
 function testDebtJson() {
   const projectDir = createProjectFromFixture();
   const baselineResult = runCli(["baseline"], projectDir);
@@ -171,6 +191,7 @@ try {
   testDoctorIncludeTests();
   testDoctorJson();
   testDoctorJsonFailOnNew();
+  testDoctorJsonFailOnNewDoesNotSaveBaseline();
   testFix();
   testBaseline();
   testBaselineJson();
