@@ -27,14 +27,14 @@ function countByPattern(patterns: PatternName[]) {
 
 function makeOptionalChainSuggestion(expr: string): string {
   const lastDot = expr.lastIndexOf(".");
-  if (lastDot === -1) {
-    const firstBracket = expr.indexOf("[");
-    if (firstBracket !== -1) {
-      return `${expr.slice(0, firstBracket)}?.${expr.slice(firstBracket)}`;
-    }
-    return expr;
+  const lastBracket = expr.lastIndexOf("[");
+  if (lastBracket > lastDot) {
+    return `${expr.slice(0, lastBracket)}?.${expr.slice(lastBracket)}`;
   }
-  return `${expr.slice(0, lastDot)}?.${expr.slice(lastDot + 1)}`;
+  if (lastDot !== -1) {
+    return `${expr.slice(0, lastDot)}?.${expr.slice(lastDot + 1)}`;
+  }
+  return expr;
 }
 
 function makeEnvSuggestion(rootExpr: string): string {
@@ -42,7 +42,22 @@ function makeEnvSuggestion(rootExpr: string): string {
     /process\.env(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[["']([^"']+)["']\])/,
   );
   const envName = match?.[1] ?? match?.[2] ?? "VAR_NAME";
-  return `const val = process.env.${envName} ?? "default";`;
+  const isIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(envName);
+  const envAccess = isIdentifier
+    ? `process.env.${envName}`
+    : `process.env["${envName}"]`;
+  return `const val = ${envAccess} ?? "default";`;
+}
+
+function makeOptionalAccessSuggestion(rootExpr: string, expr: string): string {
+  const suffix = expr.startsWith(rootExpr) ? expr.slice(rootExpr.length) : "";
+  if (suffix.startsWith(".")) {
+    return `${rootExpr}?.${suffix.slice(1)}`;
+  }
+  if (suffix.startsWith("[")) {
+    return `${rootExpr}?.${suffix}`;
+  }
+  return `${rootExpr}?.${suffix || "property"}`;
 }
 
 function makeFixSuggestions(crash: CrashReport): string[] {
@@ -58,7 +73,7 @@ function makeFixSuggestions(crash: CrashReport): string[] {
     case "Unsafe Map/Record access":
       return [
         `const item = ${crash.rootExpr}; if (!item) return;`,
-        `${crash.rootExpr}?.${crash.expr.split(".").pop()}`,
+        makeOptionalAccessSuggestion(crash.rootExpr, crash.expr),
       ];
     case "Unprotected JSON.parse":
       return [`try { ${crash.expr} } catch (e) { /* handle SyntaxError */ }`];
