@@ -75,6 +75,23 @@ Files over 5000 lines, such as compiled bundles or generated Prisma clients, are
 
 ---
 
+## Real-World Validation
+
+SafeTS v0.8.0 was tested in zero-setup mode against public TypeScript repositories: clone, build SafeTS, then run `safets doctor --json` without installing each target repo's dependencies.
+
+| Repository | TS/TSX files | Result | Duration | Fallback | Findings |
+| --- | ---: | --- | ---: | --- | ---: |
+| `google-gemini/gemini-cli` | 2108 | ok | 11s | false | 247 |
+| `vitejs/vite` | 563 | ok | 5s | false | 342 |
+| `prisma/prisma` | 2701 | ok | 8s | false | 267 |
+| `supabase/supabase` | 6669 | ok | 13s | false | 157 |
+| `vitest-dev/vitest` | 2038 | ok | 10s | false | 378 |
+| `withastro/astro` | 2094 | ok | 10s | false | 394 |
+
+No target fell back to AST-only mode. See [docs/real-world-validation.md](./docs/real-world-validation.md) for commits, pattern breakdowns, methodology, and follow-up notes.
+
+---
+
 ## The 9 Patterns
 
 | Pattern | Confidence | Example |
