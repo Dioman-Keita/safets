@@ -171,3 +171,7 @@ for (const result of results) {
     ].join(" | "),
   );
 }
+
+if (results.some((result) => result.status !== "ok")) {
+  process.exitCode = 1;
+}

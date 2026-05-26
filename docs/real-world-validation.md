@@ -48,6 +48,8 @@ npm run build
 npm run validate:real-world
 ```
 
+The validation command exits with code `1` if any target repository is missing or if SafeTS fails to produce a valid JSON report for a target.
+
 On Windows, `google-gemini/gemini-cli` may require long path support before checkout:
 
 ```bash
