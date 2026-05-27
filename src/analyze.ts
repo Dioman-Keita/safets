@@ -180,10 +180,20 @@ export function loadProgramRobust(
         (fileName) => !coveredFiles.has(normalizeFilePath(fileName)),
       );
       const programInputs: NonNullable<ProgramResult["programInputs"]> = [];
+      const scheduledFiles = new Set<string>();
       for (const { configPath, result } of workspaceResults) {
-        const fileNames = result.filteredFileNames.filter(
-          (fileName) => includeTests || !isTestFile(fileName),
-        );
+        const fileNames: string[] = [];
+        for (const fileName of result.filteredFileNames) {
+          const normalizedFileName = normalizeFilePath(fileName);
+          if (!includeTests && isTestFile(normalizedFileName)) {
+            continue;
+          }
+          if (scheduledFiles.has(normalizedFileName)) {
+            continue;
+          }
+          scheduledFiles.add(normalizedFileName);
+          fileNames.push(normalizedFileName);
+        }
         if (fileNames.length === 0) {
           continue;
         }
@@ -205,20 +215,30 @@ export function loadProgramRobust(
         warnings.push(
           `Nested tsconfig files cover ${uniqueFilteredFileNames.length}/${directFiles.length} TypeScript file(s) - scanning ${uncoveredFiles.length} uncovered file(s) directly`,
         );
-        programInputs.push({
-          configFile: null,
-          fileNames: uncoveredFiles,
-          options: {
-            target: ts.ScriptTarget.ESNext,
-            module: ts.ModuleKind.CommonJS,
-            strict: true,
-            noUncheckedIndexedAccess: true,
-            skipLibCheck: true,
-            noEmit: true,
-          },
-          rootFileCount: uncoveredFiles.length,
-          filteredFileCount: 0,
+        const directFileNames = uncoveredFiles.filter((fileName) => {
+          const normalizedFileName = normalizeFilePath(fileName);
+          if (scheduledFiles.has(normalizedFileName)) {
+            return false;
+          }
+          scheduledFiles.add(normalizedFileName);
+          return true;
         });
+        if (directFileNames.length > 0) {
+          programInputs.push({
+            configFile: null,
+            fileNames: directFileNames,
+            options: {
+              target: ts.ScriptTarget.ESNext,
+              module: ts.ModuleKind.CommonJS,
+              strict: true,
+              noUncheckedIndexedAccess: true,
+              skipLibCheck: true,
+              noEmit: true,
+            },
+            rootFileCount: directFileNames.length,
+            filteredFileCount: 0,
+          });
+        }
       }
 
       if (programInputs.length > 0) {
@@ -337,10 +357,17 @@ export function analyze(programResult: ProgramResult): CrashReport[] {
   if (programResult.programInputs && programResult.programInputs.length > 0) {
     const seen = new Set<string>();
     const all: CrashReport[] = [];
+    let oldProgram: ts.Program | undefined;
 
     for (const entry of programResult.programInputs) {
       try {
-        const program = ts.createProgram(entry.fileNames, entry.options);
+        const program = ts.createProgram(
+          entry.fileNames,
+          entry.options,
+          undefined,
+          oldProgram,
+        );
+        oldProgram = program;
         for (const crash of analyzeProgram(program, includeTests)) {
           const key = [
             normalizeFilePath(crash.file),

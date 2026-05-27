@@ -79,14 +79,14 @@ Files over 5000 lines, such as compiled bundles or generated Prisma clients, are
 
 SafeTS v0.8.0 was tested in zero-setup mode against public TypeScript repositories: clone, build SafeTS, then run `safets doctor --json` without installing each target repo's dependencies. Test files and test-only tsconfigs are excluded by default, matching normal SafeTS CLI behavior.
 
-| Repository | TS/TSX files | Strategy | Result | Duration | Fallback | Findings |
-| --- | ---: | --- | --- | ---: | --- | ---: |
-| `google-gemini/gemini-cli` | 2108 | root-tsconfig | ok | 20s | false | 247 |
-| `vitejs/vite` | 563 | workspace-tsconfigs | ok | 35s | false | 43 |
-| `prisma/prisma` | 2701 | root-tsconfig | ok | 15s | false | 267 |
-| `supabase/supabase` | 6669 | root-tsconfig | ok | 24s | false | 157 |
-| `vitest-dev/vitest` | 2038 | workspace-tsconfigs | ok | 37s | false | 298 |
-| `withastro/astro` | 2094 | workspace-tsconfigs | ok | 26s | false | 394 |
+| Repository | TS/TSX files | Strategy | Result | Duration | Perf | Fallback | Findings |
+| --- | ---: | --- | --- | ---: | --- | --- | ---: |
+| `google-gemini/gemini-cli` | 2108 | root-tsconfig | ok | 12s | ok | false | 247 |
+| `vitejs/vite` | 563 | workspace-tsconfigs | ok | 16s | ok | false | 43 |
+| `prisma/prisma` | 2701 | root-tsconfig | ok | 9s | ok | false | 267 |
+| `supabase/supabase` | 6669 | root-tsconfig | ok | 13s | ok | false | 157 |
+| `vitest-dev/vitest` | 2038 | workspace-tsconfigs | ok | 27s | ok | false | 298 |
+| `withastro/astro` | 2094 | workspace-tsconfigs | ok | 18s | ok | false | 394 |
 
 No target fell back to AST-only mode. See [docs/real-world-validation.md](./docs/real-world-validation.md) for commits, pattern breakdowns, methodology, and follow-up notes.
 

@@ -28,6 +28,7 @@ const TEST_PATTERNS = [
   /\.test\.ts$/,
   /\.spec\.ts$/,
   /\/__tests__\//,
+  /\/__tests[^/]*\//,
   /\/test\//,
   /\/tests\//,
   /\/test-utils\//,
@@ -114,7 +115,8 @@ export function findTsConfigFiles(
       }
 
       const fullPath = path.join(dir, entry.name);
-      if (!includeTests && isTestFile(fullPath)) {
+      const checkPath = entry.isDirectory() ? `${fullPath}${path.sep}` : fullPath;
+      if (!includeTests && isTestFile(checkPath)) {
         continue;
       }
 

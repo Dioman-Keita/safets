@@ -34,7 +34,7 @@ Setup:
 4. Ran `safets doctor --json` through the local compiled CLI.
 5. Captured exit code, duration, fallback status, warnings, total findings, and pattern counts.
 
-Test files and test-only tsconfigs are excluded by default in this pass, matching the default CLI behavior. The `TS/TSX files` column is a raw repository file count used for context, not the exact analyzed source count.
+Test files and test-only tsconfigs are excluded by default in this pass, matching the default CLI behavior. The `TS/TSX files` column is a raw repository file count used for context, not the exact analyzed source count. The validation script also enforces per-repository performance budgets so runtime regressions fail locally before review bots catch them.
 
 The validation script expects repos under `.tmp/real-world-repos/`:
 
@@ -60,14 +60,14 @@ git config --global core.longpaths true
 
 ## Results
 
-| Repository | Commit | TS/TSX files | Strategy | Result | Duration | Fallback | Findings | Warnings | Top patterns |
-| --- | --- | ---: | --- | --- | ---: | --- | ---: | ---: | --- |
-| `google-gemini/gemini-cli` | `85563da` | 2108 | root-tsconfig | ok | 20s | false | 247 | 1 | Non-null assertion on nullable: 129; Unsafe access after await: 46; Unprotected JSON.parse: 34; Unsafe property access: 29; Unsafe process.env access: 7; Unsafe Promise.all destructuring: 2 |
-| `vitejs/vite` | `b089c2b` | 563 | workspace-tsconfigs | ok | 35s | false | 43 | 4 | Unprotected JSON.parse: 23; Non-null assertion on nullable: 9; Unsafe process.env access: 5; Unsafe property access: 2; Unsafe destructuring: 2; Unsafe array index access: 2 |
-| `prisma/prisma` | `42f9102` | 2701 | root-tsconfig | ok | 15s | false | 267 | 1 | Unsafe process.env access: 97; Non-null assertion on nullable: 67; Unsafe property access: 66; Unprotected JSON.parse: 24; Unsafe access after await: 10; Unsafe Promise.all destructuring: 1; Unsafe array index access: 1; Unsafe Map/Record access: 1 |
-| `supabase/supabase` | `108a7c2c` | 6669 | root-tsconfig | ok | 24s | false | 157 | 1 | Unsafe process.env access: 110; Unprotected JSON.parse: 47 |
-| `vitest-dev/vitest` | `152750e` | 2038 | workspace-tsconfigs | ok | 37s | false | 298 | 3 | Non-null assertion on nullable: 191; Unsafe process.env access: 48; Unsafe property access: 19; Unsafe access after await: 18; Unprotected JSON.parse: 16; Unsafe array index access: 5; Unsafe Promise.all destructuring: 1 |
-| `withastro/astro` | `1e49163` | 2094 | workspace-tsconfigs | ok | 26s | false | 394 | 5 | Non-null assertion on nullable: 151; Unsafe property access: 119; Unsafe process.env access: 43; Unsafe array index access: 37; Unprotected JSON.parse: 23; Unsafe access after await: 16; Unsafe Map/Record access: 3; Unsafe destructuring: 2 |
+| Repository | Commit | TS/TSX files | Strategy | Result | Duration | Perf | Fallback | Findings | Warnings | Top patterns |
+| --- | --- | ---: | --- | --- | ---: | --- | --- | ---: | ---: | --- |
+| `google-gemini/gemini-cli` | `85563da` | 2108 | root-tsconfig | ok | 12s | ok | false | 247 | 1 | Non-null assertion on nullable: 129; Unsafe access after await: 46; Unprotected JSON.parse: 34; Unsafe property access: 29; Unsafe process.env access: 7; Unsafe Promise.all destructuring: 2 |
+| `vitejs/vite` | `b089c2b` | 563 | workspace-tsconfigs | ok | 16s | ok | false | 43 | 4 | Unprotected JSON.parse: 23; Non-null assertion on nullable: 9; Unsafe process.env access: 5; Unsafe property access: 2; Unsafe destructuring: 2; Unsafe array index access: 2 |
+| `prisma/prisma` | `42f9102` | 2701 | root-tsconfig | ok | 9s | ok | false | 267 | 1 | Unsafe process.env access: 97; Non-null assertion on nullable: 67; Unsafe property access: 66; Unprotected JSON.parse: 24; Unsafe access after await: 10; Unsafe Promise.all destructuring: 1; Unsafe array index access: 1; Unsafe Map/Record access: 1 |
+| `supabase/supabase` | `108a7c2c` | 6669 | root-tsconfig | ok | 13s | ok | false | 157 | 1 | Unsafe process.env access: 110; Unprotected JSON.parse: 47 |
+| `vitest-dev/vitest` | `152750e` | 2038 | workspace-tsconfigs | ok | 27s | ok | false | 298 | 3 | Non-null assertion on nullable: 191; Unsafe process.env access: 48; Unsafe property access: 19; Unsafe access after await: 18; Unprotected JSON.parse: 16; Unsafe array index access: 5; Unsafe Promise.all destructuring: 1 |
+| `withastro/astro` | `1e49163` | 2094 | workspace-tsconfigs | ok | 18s | ok | false | 394 | 5 | Non-null assertion on nullable: 151; Unsafe property access: 119; Unsafe process.env access: 43; Unsafe array index access: 37; Unprotected JSON.parse: 23; Unsafe access after await: 16; Unsafe Map/Record access: 3; Unsafe destructuring: 2 |
 
 ## Observations
 

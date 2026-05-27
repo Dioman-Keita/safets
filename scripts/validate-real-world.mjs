@@ -16,6 +16,15 @@ const targets = [
   { slug: "withastro/astro", dir: "astro" },
 ];
 
+const performanceBudgetsMs = {
+  "google-gemini/gemini-cli": 25_000,
+  "vitejs/vite": 30_000,
+  "prisma/prisma": 20_000,
+  "supabase/supabase": 30_000,
+  "vitest-dev/vitest": 45_000,
+  "withastro/astro": 35_000,
+};
+
 function run(command, args, cwd, options = {}) {
   return spawnSync(command, args, {
     cwd,
@@ -131,6 +140,11 @@ for (const target of targets) {
 
   const validation = runSafeTS(cwd);
   const report = validation.report;
+  const performanceBudgetMs = performanceBudgetsMs[target.slug] ?? null;
+  const performanceStatus =
+    performanceBudgetMs !== null && validation.durationMs > performanceBudgetMs
+      ? "over-budget"
+      : "ok";
   results.push({
     slug: target.slug,
     commit: getCommit(cwd),
@@ -138,6 +152,8 @@ for (const target of targets) {
     status: validation.ok ? "ok" : "failed",
     exitCode: validation.exitCode ?? "n/a",
     durationMs: validation.durationMs,
+    performanceBudgetMs,
+    performanceStatus,
     fallback: report?.program?.fallback ?? null,
     strategy: report?.program?.strategy ?? null,
     configFiles: report?.program?.configFiles ?? [],
@@ -158,8 +174,8 @@ console.log(JSON.stringify({
 }, null, 2));
 
 console.log("\n--- markdown ---\n");
-console.log("| Repository | Commit | TS/TSX files | Strategy | Result | Duration | Fallback | Findings | Warnings | Top patterns |");
-console.log("| --- | --- | ---: | --- | --- | ---: | --- | ---: | ---: | --- |");
+console.log("| Repository | Commit | TS/TSX files | Strategy | Result | Duration | Perf | Fallback | Findings | Warnings | Top patterns |");
+console.log("| --- | --- | ---: | --- | --- | ---: | --- | --- | ---: | ---: | --- |");
 for (const result of results) {
   console.log(
     [
@@ -169,6 +185,7 @@ for (const result of results) {
       markdownEscape(result.strategy ?? "n/a"),
       markdownEscape(result.status),
       `${Math.round((result.durationMs ?? 0) / 1000)}s`,
+      markdownEscape(result.performanceStatus ?? "n/a"),
       result.fallback === null ? "n/a" : String(result.fallback),
       result.total ?? "n/a",
       result.warnings?.length ?? "n/a",
@@ -177,6 +194,10 @@ for (const result of results) {
   );
 }
 
-if (results.some((result) => result.status !== "ok")) {
+if (
+  results.some(
+    (result) => result.status !== "ok" || result.performanceStatus === "over-budget",
+  )
+) {
   process.exitCode = 1;
 }
