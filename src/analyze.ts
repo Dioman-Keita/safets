@@ -69,6 +69,8 @@ function loadTsConfigProgram(
       config,
       ts.sys,
       path.dirname(configPath),
+      undefined,
+      configPath,
     );
     const filteredFileNames = filterProgramFiles(fileNames);
 
@@ -144,7 +146,7 @@ export function loadProgramRobust(
   }
 
   try {
-    const workspaceConfigPaths = findTsConfigFiles(projectRoot)
+    const workspaceConfigPaths = findTsConfigFiles(projectRoot, includeTests)
       .filter((configPath) => normalizeFilePath(configPath) !== normalizeFilePath(rootConfigPath))
       .sort();
     const allFileNames: string[] = [];
@@ -165,27 +167,39 @@ export function loadProgramRobust(
       }
     }
 
-    const uniqueFilteredFileNames = uniqueFiles(allFilteredFileNames);
-    const directFiles = findTsFiles(projectRoot);
+    const uniqueFilteredFileNames = uniqueFiles(
+      allFilteredFileNames.filter((fileName) => includeTests || !isTestFile(fileName)),
+    );
+    const directFiles = findTsFiles(projectRoot).filter(
+      (fileName) => includeTests || !isTestFile(fileName),
+    );
 
     if (uniqueFilteredFileNames.length > 0) {
       const coveredFiles = new Set(uniqueFilteredFileNames);
       const uncoveredFiles = directFiles.filter(
         (fileName) => !coveredFiles.has(normalizeFilePath(fileName)),
       );
-      const programInputs: NonNullable<ProgramResult["programInputs"]> = workspaceResults.map(
-        ({ configPath, result }) => ({
+      const programInputs: NonNullable<ProgramResult["programInputs"]> = [];
+      for (const { configPath, result } of workspaceResults) {
+        const fileNames = result.filteredFileNames.filter(
+          (fileName) => includeTests || !isTestFile(fileName),
+        );
+        if (fileNames.length === 0) {
+          continue;
+        }
+
+        programInputs.push({
           configFile: configPath,
-          fileNames: result.filteredFileNames,
+          fileNames,
           options: {
             ...result.options,
             noEmit: true,
             skipLibCheck: true,
           },
-          rootFileCount: result.filteredFileNames.length,
+          rootFileCount: fileNames.length,
           filteredFileCount: result.fileNames.length - result.filteredFileNames.length,
-        }),
-      );
+        });
+      }
 
       if (uncoveredFiles.length > 0) {
         warnings.push(
@@ -241,7 +255,9 @@ export function loadProgramRobust(
   }
 
   try {
-    const files = findTsFiles(projectRoot);
+    const files = findTsFiles(projectRoot).filter(
+      (fileName) => includeTests || !isTestFile(fileName),
+    );
 
     if (files.length > 0) {
       const program = ts.createProgram(files, {
@@ -338,8 +354,10 @@ export function analyze(programResult: ProgramResult): CrashReport[] {
             all.push(crash);
           }
         }
-      } catch {
-        // Skip workspace slices that fail analysis instead of aborting the scan.
+      } catch (error) {
+        programResult.warnings.push(
+          `Failed to analyze workspace slice for ${entry.configFile ?? "uncovered files"}: ${(error as Error).message}`,
+        );
       }
     }
 

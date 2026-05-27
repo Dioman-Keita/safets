@@ -214,6 +214,34 @@ function testScansUncoveredFilesWhenNestedTsconfigsHaveLowCoverage() {
   );
 }
 
+function testSkipsTestTsconfigsByDefault() {
+  const projectDir = createProject({
+    "test/tsconfig.json": JSON.stringify({
+      compilerOptions: { strict: true },
+      include: ["**/*.ts"],
+    }),
+    "test/app.test.ts": "JSON.parse('{}');\n",
+    "src/app.ts": "JSON.parse('{}');\n",
+  });
+
+  const result = runCli(["doctor", "--json"], projectDir);
+  assert(result.status === 0, "Expected default scan to exit with code 0", result.stderr);
+
+  const report = JSON.parse(result.stdout);
+  assert(report.program.strategy === "direct-scan", "Expected test-only tsconfig to be skipped by default", result.stdout);
+  assert(
+    !report.program.configFiles.includes("test/tsconfig.json"),
+    "Expected JSON output not to include skipped test tsconfig",
+    result.stdout,
+  );
+  assert(report.summary.total === 1, "Expected default scan to exclude test findings", result.stdout);
+  assert(
+    report.crashes.every((crash) => crash.file === "src/app.ts"),
+    "Expected only source findings when test files are excluded",
+    result.stdout,
+  );
+}
+
 try {
   testHelp();
   testVersion();
@@ -226,6 +254,7 @@ try {
   testDoesNotUseParentTsconfig();
   testUsesNestedTsconfig();
   testScansUncoveredFilesWhenNestedTsconfigsHaveLowCoverage();
+  testSkipsTestTsconfigsByDefault();
   console.log("CLI contract checks passed.");
 } finally {
   cleanupTempDirs();

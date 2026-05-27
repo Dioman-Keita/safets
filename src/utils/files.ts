@@ -77,7 +77,7 @@ export function findTsFiles(dir: string, files: string[] = []): string[] {
       if (entry.name.startsWith(".")) {
         continue;
       }
-      if (SKIP_DIRS.has(entry.name)) {
+      if (SKIP_DIRS.has(entry.name.toLowerCase())) {
         continue;
       }
 
@@ -99,20 +99,28 @@ export function findTsFiles(dir: string, files: string[] = []): string[] {
   return files;
 }
 
-export function findTsConfigFiles(dir: string, files: string[] = []): string[] {
+export function findTsConfigFiles(
+  dir: string,
+  includeTests = false,
+  files: string[] = [],
+): string[] {
   try {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       if (entry.name.startsWith(".")) {
         continue;
       }
-      if (SKIP_DIRS.has(entry.name)) {
+      if (SKIP_DIRS.has(entry.name.toLowerCase())) {
         continue;
       }
 
       const fullPath = path.join(dir, entry.name);
+      if (!includeTests && isTestFile(fullPath)) {
+        continue;
+      }
+
       try {
         if (entry.isDirectory()) {
-          findTsConfigFiles(fullPath, files);
+          findTsConfigFiles(fullPath, includeTests, files);
         } else if (entry.name === "tsconfig.json") {
           files.push(normalizeFilePath(fullPath));
         }
