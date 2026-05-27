@@ -60,12 +60,12 @@ git config --global core.longpaths true
 
 | Repository | Commit | TS/TSX files | Strategy | Result | Duration | Fallback | Findings | Warnings | Top patterns |
 | --- | --- | ---: | --- | --- | ---: | --- | ---: | ---: | --- |
-| `google-gemini/gemini-cli` | `85563da` | 2108 | root-tsconfig | ok | 16s | false | 247 | 1 | Non-null assertion on nullable: 129; Unsafe access after await: 46; Unprotected JSON.parse: 34; Unsafe property access: 29; Unsafe process.env access: 7; Unsafe Promise.all destructuring: 2 |
-| `vitejs/vite` | `b089c2b` | 563 | workspace-tsconfigs | ok | 19s | false | 251 | 3 | Non-null assertion on nullable: 114; Unsafe property access: 51; Unsafe process.env access: 41; Unprotected JSON.parse: 23; Unsafe array index access: 14; Unsafe Map/Record access: 4; Unsafe Promise.all destructuring: 2; Unsafe access after await: 1; Unsafe destructuring: 1 |
-| `prisma/prisma` | `42f9102` | 2701 | root-tsconfig | ok | 10s | false | 267 | 1 | Unsafe process.env access: 97; Non-null assertion on nullable: 67; Unsafe property access: 66; Unprotected JSON.parse: 24; Unsafe access after await: 10; Unsafe Promise.all destructuring: 1; Unsafe array index access: 1; Unsafe Map/Record access: 1 |
-| `supabase/supabase` | `108a7c2c` | 6669 | root-tsconfig | ok | 13s | false | 157 | 1 | Unsafe process.env access: 110; Unprotected JSON.parse: 47 |
-| `vitest-dev/vitest` | `152750e` | 2038 | workspace-tsconfigs | ok | 31s | false | 237 | 2 | Non-null assertion on nullable: 79; Unsafe property access: 67; Unsafe process.env access: 42; Unsafe array index access: 28; Unprotected JSON.parse: 15; Unsafe Map/Record access: 6 |
-| `withastro/astro` | `1e49163` | 2094 | direct-scan | ok | 31s | false | 394 | 3 | Non-null assertion on nullable: 151; Unsafe property access: 119; Unsafe process.env access: 43; Unsafe array index access: 37; Unprotected JSON.parse: 23; Unsafe access after await: 16; Unsafe Map/Record access: 3; Unsafe destructuring: 2 |
+| `google-gemini/gemini-cli` | `85563da` | 2108 | root-tsconfig | ok | 22s | false | 247 | 1 | Non-null assertion on nullable: 129; Unsafe access after await: 46; Unprotected JSON.parse: 34; Unsafe property access: 29; Unsafe process.env access: 7; Unsafe Promise.all destructuring: 2 |
+| `vitejs/vite` | `b089c2b` | 563 | workspace-tsconfigs | ok | 28s | false | 43 | 4 | Unprotected JSON.parse: 23; Non-null assertion on nullable: 9; Unsafe process.env access: 5; Unsafe property access: 2; Unsafe destructuring: 2; Unsafe array index access: 2 |
+| `prisma/prisma` | `42f9102` | 2701 | root-tsconfig | ok | 17s | false | 267 | 1 | Unsafe process.env access: 97; Non-null assertion on nullable: 67; Unsafe property access: 66; Unprotected JSON.parse: 24; Unsafe access after await: 10; Unsafe Promise.all destructuring: 1; Unsafe array index access: 1; Unsafe Map/Record access: 1 |
+| `supabase/supabase` | `108a7c2c` | 6669 | root-tsconfig | ok | 25s | false | 157 | 1 | Unsafe process.env access: 110; Unprotected JSON.parse: 47 |
+| `vitest-dev/vitest` | `152750e` | 2038 | workspace-tsconfigs | ok | 53s | false | 298 | 3 | Non-null assertion on nullable: 191; Unsafe process.env access: 48; Unsafe property access: 19; Unsafe access after await: 18; Unprotected JSON.parse: 16; Unsafe array index access: 5; Unsafe Promise.all destructuring: 1 |
+| `withastro/astro` | `1e49163` | 2094 | workspace-tsconfigs | ok | 52s | false | 394 | 5 | Non-null assertion on nullable: 151; Unsafe property access: 119; Unsafe process.env access: 43; Unsafe array index access: 37; Unprotected JSON.parse: 23; Unsafe access after await: 16; Unsafe Map/Record access: 3; Unsafe destructuring: 2 |
 
 ## Observations
 
@@ -75,7 +75,7 @@ git config --global core.longpaths true
 - Supabase and Prisma show that `process.env` findings dominate in large real repos.
 - Gemini CLI and Astro show that `Non-null assertion on nullable` and `Unsafe access after await` need careful false-positive review before teams use these patterns as hard CI gates.
 - Supabase filtered 3954 generated or bundled tsconfig inputs, which confirms that generated-file filtering matters in real monorepos.
-- Astro's nested tsconfig files covered only a small slice of the repository, so SafeTS intentionally kept direct TypeScript scanning for broader coverage.
+- Vite, Vitest, and Astro also scan files not covered by nested tsconfigs directly, so workspace mode does not silently skip uncovered TypeScript files.
 - This validation uncovered and fixed a project-boundary bug: SafeTS previously allowed TypeScript config discovery to climb outside the requested project root, which could accidentally analyze a parent repository instead of the target project.
 
 ## Follow-Up

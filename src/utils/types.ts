@@ -42,6 +42,13 @@ export interface Baseline {
 
 export interface ProgramResult {
   program: import("typescript").Program | null;
+  programInputs?: {
+    configFile: string | null;
+    fileNames: string[];
+    options: import("typescript").CompilerOptions;
+    rootFileCount: number;
+    filteredFileCount: number;
+  }[];
   fallback: boolean;
   warnings: string[];
   includeTests: boolean;

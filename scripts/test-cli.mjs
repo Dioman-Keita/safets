@@ -183,7 +183,7 @@ function testUsesNestedTsconfig() {
   assert(report.summary.total >= 1, "Expected nested tsconfig files to be analyzed", result.stdout);
 }
 
-function testSkipsLowCoverageNestedTsconfigs() {
+function testScansUncoveredFilesWhenNestedTsconfigsHaveLowCoverage() {
   const projectDir = createProject({
     "packages/fixture/tsconfig.json": JSON.stringify({
       compilerOptions: { strict: true },
@@ -200,10 +200,10 @@ function testSkipsLowCoverageNestedTsconfigs() {
   assert(result.status === 0, "Expected low coverage workspace scan to exit with code 0", result.stderr);
 
   const report = JSON.parse(result.stdout);
-  assert(report.program.strategy === "direct-scan", "Expected direct scan when nested tsconfig coverage is too low", result.stdout);
+  assert(report.program.strategy === "workspace-tsconfigs", "Expected workspace strategy with direct scan coverage for uncovered files", result.stdout);
   assert(
-    report.program.warnings.some((warning) => warning.includes("cover only")),
-    "Expected low coverage warning",
+    report.program.warnings.some((warning) => warning.includes("scanning 4 uncovered file(s) directly")),
+    "Expected uncovered file coverage warning",
     result.stdout,
   );
   assert(report.summary.total >= 4, "Expected direct scan to analyze files outside low coverage tsconfig", result.stdout);
@@ -225,7 +225,7 @@ try {
   testFixNoSuggestionsMessage();
   testDoesNotUseParentTsconfig();
   testUsesNestedTsconfig();
-  testSkipsLowCoverageNestedTsconfigs();
+  testScansUncoveredFilesWhenNestedTsconfigsHaveLowCoverage();
   console.log("CLI contract checks passed.");
 } finally {
   cleanupTempDirs();

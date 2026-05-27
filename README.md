@@ -81,12 +81,12 @@ SafeTS v0.8.0 was tested in zero-setup mode against public TypeScript repositori
 
 | Repository | TS/TSX files | Strategy | Result | Duration | Fallback | Findings |
 | --- | ---: | --- | --- | ---: | --- | ---: |
-| `google-gemini/gemini-cli` | 2108 | root-tsconfig | ok | 16s | false | 247 |
-| `vitejs/vite` | 563 | workspace-tsconfigs | ok | 19s | false | 251 |
-| `prisma/prisma` | 2701 | root-tsconfig | ok | 10s | false | 267 |
-| `supabase/supabase` | 6669 | root-tsconfig | ok | 13s | false | 157 |
-| `vitest-dev/vitest` | 2038 | workspace-tsconfigs | ok | 31s | false | 237 |
-| `withastro/astro` | 2094 | direct-scan | ok | 31s | false | 394 |
+| `google-gemini/gemini-cli` | 2108 | root-tsconfig | ok | 22s | false | 247 |
+| `vitejs/vite` | 563 | workspace-tsconfigs | ok | 28s | false | 43 |
+| `prisma/prisma` | 2701 | root-tsconfig | ok | 17s | false | 267 |
+| `supabase/supabase` | 6669 | root-tsconfig | ok | 25s | false | 157 |
+| `vitest-dev/vitest` | 2038 | workspace-tsconfigs | ok | 53s | false | 298 |
+| `withastro/astro` | 2094 | workspace-tsconfigs | ok | 52s | false | 394 |
 
 No target fell back to AST-only mode. See [docs/real-world-validation.md](./docs/real-world-validation.md) for commits, pattern breakdowns, methodology, and follow-up notes.
 
