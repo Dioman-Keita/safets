@@ -42,7 +42,18 @@ export interface Baseline {
 
 export interface ProgramResult {
   program: import("typescript").Program | null;
+  programInputs?: {
+    configFile: string | null;
+    fileNames: string[];
+    options: import("typescript").CompilerOptions;
+    rootFileCount: number;
+    filteredFileCount: number;
+  }[];
   fallback: boolean;
   warnings: string[];
   includeTests: boolean;
+  strategy: "root-tsconfig" | "workspace-tsconfigs" | "direct-scan" | "fallback";
+  configFiles: string[];
+  rootFileCount: number;
+  filteredFileCount: number;
 }

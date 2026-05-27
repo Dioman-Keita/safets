@@ -13,8 +13,16 @@ import {
   detectUnsafePromiseAllDestructuring,
   detectUnsafePropertyAccess,
 } from "./detectors/index.ts";
-import { findTsFiles, isAnalyzableTsFile, isTestFile, normalizeFilePath } from "./utils/files.ts";
+import { findTsConfigFiles, findTsFiles, isAnalyzableTsFile, isTestFile, normalizeFilePath } from "./utils/files.ts";
 import type { CrashReport, ProgramResult } from "./utils/types.ts";
+
+interface TsConfigProgramResult {
+  program: ts.Program | null;
+  options: ts.CompilerOptions;
+  fileNames: string[];
+  filteredFileNames: string[];
+  errors: readonly unknown[];
+}
 
 function filterProgramFiles(fileNames: string[]): string[] {
   return fileNames
@@ -41,50 +49,99 @@ function isCheckerUsable(program: ts.Program): boolean {
   }
 }
 
+function loadTsConfigProgram(
+  configPath: string,
+  createProgram = true,
+): TsConfigProgramResult {
+  try {
+    const { config, error } = ts.readConfigFile(configPath, ts.sys.readFile);
+    if (error) {
+      return {
+        program: null,
+        options: {},
+        fileNames: [],
+        filteredFileNames: [],
+        errors: [error],
+      };
+    }
+
+    const { options, fileNames, errors } = ts.parseJsonConfigFileContent(
+      config,
+      ts.sys,
+      path.dirname(configPath),
+      undefined,
+      configPath,
+    );
+    const filteredFileNames = filterProgramFiles(fileNames);
+
+    if (filteredFileNames.length === 0 || !createProgram) {
+      return { program: null, options, fileNames, filteredFileNames, errors };
+    }
+
+    const program = ts.createProgram(filteredFileNames, {
+      ...options,
+      noEmit: true,
+      skipLibCheck: true,
+    });
+
+    return { program, options, fileNames, filteredFileNames, errors };
+  } catch (error) {
+    return {
+      program: null,
+      options: {},
+      fileNames: [],
+      filteredFileNames: [],
+      errors: [error],
+    };
+  }
+}
+
+function uniqueFiles(fileNames: string[]): string[] {
+  return [...new Set(fileNames.map((fileName) => normalizeFilePath(fileName)))];
+}
+
 export function loadProgramRobust(
   projectRoot: string,
   includeTests: boolean,
 ): ProgramResult {
   const warnings: string[] = [];
 
+  const rootConfigPath = path.join(projectRoot, "tsconfig.json");
+
   try {
-    const configPath = path.join(projectRoot, "tsconfig.json");
+    if (ts.sys.fileExists(rootConfigPath)) {
+      const result = loadTsConfigProgram(rootConfigPath);
 
-    if (ts.sys.fileExists(configPath)) {
-      const { config, error } = ts.readConfigFile(configPath, ts.sys.readFile);
-
-      if (!error) {
-        const { options, fileNames, errors } = ts.parseJsonConfigFileContent(
-          config,
-          ts.sys,
-          path.dirname(configPath),
-        );
-        const filteredFileNames = filterProgramFiles(fileNames);
-
-        if (filteredFileNames.length > 0) {
-          const program = ts.createProgram(filteredFileNames, {
-            ...options,
-            noEmit: true,
-            skipLibCheck: true,
-          });
-
-          if (isCheckerUsable(program)) {
-            if (errors.length > 0) {
-              warnings.push(
-                `tsconfig has ${errors.length} issue(s) - analysis may be partial`,
-              );
-            }
-            if (filteredFileNames.length !== fileNames.length) {
-              warnings.push(
-                `Filtered ${fileNames.length - filteredFileNames.length} generated or bundled file(s) from tsconfig inputs`,
-              );
-            }
-            return { program, fallback: false, warnings, includeTests };
-          }
-
-          warnings.push("TypeChecker built but unusable - trying fallback options");
+      if (result.program && isCheckerUsable(result.program)) {
+        if (result.errors.length > 0) {
+          warnings.push(
+            `tsconfig has ${result.errors.length} issue(s) - analysis may be partial`,
+          );
         }
-      } else {
+        if (result.filteredFileNames.length !== result.fileNames.length) {
+          warnings.push(
+            `Filtered ${result.fileNames.length - result.filteredFileNames.length} generated or bundled file(s) from tsconfig inputs`,
+          );
+        }
+        return {
+          program: result.program,
+          fallback: false,
+          warnings,
+          includeTests,
+          strategy: "root-tsconfig",
+          configFiles: [rootConfigPath],
+          rootFileCount: result.filteredFileNames.length,
+          filteredFileCount: result.fileNames.length - result.filteredFileNames.length,
+        };
+      }
+
+      if (result.filteredFileNames.length > 0) {
+        warnings.push(
+          result.errors.length > 0
+            ? "tsconfig.json found but could not be parsed"
+            : "TypeChecker built but unusable - trying fallback options",
+        );
+      } else if (result.errors.length > 0) {
         warnings.push("tsconfig.json found but could not be parsed");
       }
     }
@@ -93,7 +150,138 @@ export function loadProgramRobust(
   }
 
   try {
-    const files = findTsFiles(projectRoot);
+    const workspaceConfigPaths = findTsConfigFiles(projectRoot, includeTests)
+      .filter((configPath) => normalizeFilePath(configPath) !== normalizeFilePath(rootConfigPath))
+      .sort();
+    const allFileNames: string[] = [];
+    const allFilteredFileNames: string[] = [];
+    const workspaceResults: {
+      configPath: string;
+      result: TsConfigProgramResult;
+    }[] = [];
+    let totalErrors = 0;
+
+    for (const configPath of workspaceConfigPaths) {
+      const result = loadTsConfigProgram(configPath, false);
+      totalErrors += result.errors.length;
+      if (result.filteredFileNames.length > 0) {
+        allFileNames.push(...result.fileNames);
+        allFilteredFileNames.push(...result.filteredFileNames);
+        workspaceResults.push({ configPath, result });
+      }
+    }
+
+    const uniqueFilteredFileNames = uniqueFiles(
+      allFilteredFileNames.filter((fileName) => includeTests || !isTestFile(fileName)),
+    );
+    const directFiles = findTsFiles(projectRoot).filter(
+      (fileName) => includeTests || !isTestFile(fileName),
+    );
+
+    if (uniqueFilteredFileNames.length > 0) {
+      const coveredFiles = new Set(uniqueFilteredFileNames);
+      const uncoveredFiles = directFiles.filter(
+        (fileName) => !coveredFiles.has(normalizeFilePath(fileName)),
+      );
+      const programInputs: NonNullable<ProgramResult["programInputs"]> = [];
+      const scheduledFiles = new Set<string>();
+      for (const { configPath, result } of workspaceResults) {
+        const fileNames: string[] = [];
+        for (const fileName of result.filteredFileNames) {
+          const normalizedFileName = normalizeFilePath(fileName);
+          if (!includeTests && isTestFile(normalizedFileName)) {
+            continue;
+          }
+          if (scheduledFiles.has(normalizedFileName)) {
+            continue;
+          }
+          scheduledFiles.add(normalizedFileName);
+          fileNames.push(normalizedFileName);
+        }
+        if (fileNames.length === 0) {
+          continue;
+        }
+
+        programInputs.push({
+          configFile: configPath,
+          fileNames,
+          options: {
+            ...result.options,
+            noEmit: true,
+            skipLibCheck: true,
+          },
+          rootFileCount: fileNames.length,
+          filteredFileCount: result.fileNames.length - result.filteredFileNames.length,
+        });
+      }
+
+      if (uncoveredFiles.length > 0) {
+        warnings.push(
+          `Nested tsconfig files cover ${uniqueFilteredFileNames.length}/${directFiles.length} TypeScript file(s) - scanning ${uncoveredFiles.length} uncovered file(s) directly`,
+        );
+        const directFileNames = uncoveredFiles.filter((fileName) => {
+          const normalizedFileName = normalizeFilePath(fileName);
+          if (scheduledFiles.has(normalizedFileName)) {
+            return false;
+          }
+          scheduledFiles.add(normalizedFileName);
+          return true;
+        });
+        if (directFileNames.length > 0) {
+          programInputs.push({
+            configFile: null,
+            fileNames: directFileNames,
+            options: {
+              target: ts.ScriptTarget.ESNext,
+              module: ts.ModuleKind.CommonJS,
+              strict: true,
+              noUncheckedIndexedAccess: true,
+              skipLibCheck: true,
+              noEmit: true,
+            },
+            rootFileCount: directFileNames.length,
+            filteredFileCount: 0,
+          });
+        }
+      }
+
+      if (programInputs.length > 0) {
+        warnings.push(
+          `No root tsconfig.json found - using ${workspaceResults.length} nested tsconfig.json file(s)`,
+        );
+        if (totalErrors > 0) {
+          warnings.push(
+            `Nested tsconfig files have ${totalErrors} issue(s) - analysis may be partial`,
+          );
+        }
+        if (allFilteredFileNames.length !== allFileNames.length) {
+          warnings.push(
+            `Filtered ${allFileNames.length - allFilteredFileNames.length} generated or bundled file(s) from nested tsconfig inputs`,
+          );
+        }
+        return {
+          program: null,
+          programInputs,
+          fallback: false,
+          warnings,
+          includeTests,
+          strategy: "workspace-tsconfigs",
+          configFiles: workspaceResults.map(({ configPath }) => configPath),
+          rootFileCount: uniqueFiles([...uniqueFilteredFileNames, ...uncoveredFiles]).length,
+          filteredFileCount: allFileNames.length - allFilteredFileNames.length,
+        };
+      } else {
+        warnings.push("Nested tsconfig scan produced unusable TypeChecker");
+      }
+    }
+  } catch (error) {
+    warnings.push(`Nested tsconfig scan error: ${(error as Error).message}`);
+  }
+
+  try {
+    const files = findTsFiles(projectRoot).filter(
+      (fileName) => includeTests || !isTestFile(fileName),
+    );
 
     if (files.length > 0) {
       const program = ts.createProgram(files, {
@@ -107,7 +295,16 @@ export function loadProgramRobust(
 
       if (isCheckerUsable(program)) {
         warnings.push("No usable tsconfig found - scanning TypeScript files directly");
-        return { program, fallback: false, warnings, includeTests };
+        return {
+          program,
+          fallback: false,
+          warnings,
+          includeTests,
+          strategy: "direct-scan",
+          configFiles: [],
+          rootFileCount: files.length,
+          filteredFileCount: 0,
+        };
       }
 
       warnings.push("Direct scan produced unusable TypeChecker");
@@ -119,7 +316,16 @@ export function loadProgramRobust(
   }
 
   warnings.push("Running in AST-only fallback mode - results will be partial");
-  return { program: null, fallback: true, warnings, includeTests };
+  return {
+    program: null,
+    fallback: true,
+    warnings,
+    includeTests,
+    strategy: "fallback",
+    configFiles: [],
+    rootFileCount: 0,
+    filteredFileCount: 0,
+  };
 }
 
 function getUserSourceFiles(
@@ -152,6 +358,43 @@ function getUserSourceFiles(
 export function analyze(programResult: ProgramResult): CrashReport[] {
   const { includeTests } = programResult;
 
+  if (programResult.programInputs && programResult.programInputs.length > 0) {
+    const seen = new Set<string>();
+    const all: CrashReport[] = [];
+    let oldProgram: ts.Program | undefined;
+
+    for (const entry of programResult.programInputs) {
+      try {
+        const program = ts.createProgram(
+          entry.fileNames,
+          entry.options,
+          undefined,
+          oldProgram,
+        );
+        oldProgram = program;
+        for (const crash of analyzeProgram(program, includeTests)) {
+          const key = [
+            normalizeFilePath(crash.file),
+            crash.line,
+            crash.col,
+            crash.expr,
+            crash.pattern,
+          ].join("\0");
+          if (!seen.has(key)) {
+            seen.add(key);
+            all.push(crash);
+          }
+        }
+      } catch (error) {
+        programResult.warnings.push(
+          `Failed to analyze workspace slice for ${entry.configFile ?? "uncovered files"}: ${(error as Error).message}`,
+        );
+      }
+    }
+
+    return all;
+  }
+
   if (programResult.fallback || !programResult.program) {
     const files = findTsFiles(process.cwd()).filter(
       (filePath) => includeTests || !isTestFile(filePath),
@@ -176,8 +419,12 @@ export function analyze(programResult: ProgramResult): CrashReport[] {
     return all;
   }
 
-  const checker = programResult.program.getTypeChecker();
-  const sourceFiles = getUserSourceFiles(programResult.program, includeTests);
+  return analyzeProgram(programResult.program, includeTests);
+}
+
+function analyzeProgram(program: ts.Program, includeTests: boolean): CrashReport[] {
+  const checker = program.getTypeChecker();
+  const sourceFiles = getUserSourceFiles(program, includeTests);
   const all: CrashReport[] = [];
 
   for (const sourceFile of sourceFiles) {

@@ -28,6 +28,7 @@ const TEST_PATTERNS = [
   /\.test\.ts$/,
   /\.spec\.ts$/,
   /\/__tests__\//,
+  /\/__tests[^/]*\//,
   /\/test\//,
   /\/tests\//,
   /\/test-utils\//,
@@ -77,7 +78,7 @@ export function findTsFiles(dir: string, files: string[] = []): string[] {
       if (entry.name.startsWith(".")) {
         continue;
       }
-      if (SKIP_DIRS.has(entry.name)) {
+      if (SKIP_DIRS.has(entry.name.toLowerCase())) {
         continue;
       }
 
@@ -86,6 +87,43 @@ export function findTsFiles(dir: string, files: string[] = []): string[] {
         if (entry.isDirectory()) {
           findTsFiles(fullPath, files);
         } else if (isAnalyzableTsFile(fullPath)) {
+          files.push(normalizeFilePath(fullPath));
+        }
+      } catch {
+        // Skip unreadable entries.
+      }
+    }
+  } catch {
+    // Skip unreadable directories.
+  }
+
+  return files;
+}
+
+export function findTsConfigFiles(
+  dir: string,
+  includeTests = false,
+  files: string[] = [],
+): string[] {
+  try {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) {
+        continue;
+      }
+      if (SKIP_DIRS.has(entry.name.toLowerCase())) {
+        continue;
+      }
+
+      const fullPath = path.join(dir, entry.name);
+      const checkPath = entry.isDirectory() ? `${fullPath}${path.sep}` : fullPath;
+      if (!includeTests && isTestFile(checkPath)) {
+        continue;
+      }
+
+      try {
+        if (entry.isDirectory()) {
+          findTsConfigFiles(fullPath, includeTests, files);
+        } else if (entry.name === "tsconfig.json") {
           files.push(normalizeFilePath(fullPath));
         }
       } catch {

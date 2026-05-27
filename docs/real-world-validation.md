@@ -18,7 +18,7 @@ This is not a false-positive audit yet. The goal of this pass is operational tru
 
 Validation date: 2026-05-26
 
-SafeTS commit: `5db792d`
+SafeTS version: `0.8.0` development build
 
 Environment:
 
@@ -33,6 +33,8 @@ Setup:
 3. Did not install target repository dependencies.
 4. Ran `safets doctor --json` through the local compiled CLI.
 5. Captured exit code, duration, fallback status, warnings, total findings, and pattern counts.
+
+Test files and test-only tsconfigs are excluded by default in this pass, matching the default CLI behavior. The `TS/TSX files` column is a raw repository file count used for context, not the exact analyzed source count. The validation script also enforces per-repository performance budgets so runtime regressions fail locally before review bots catch them.
 
 The validation script expects repos under `.tmp/real-world-repos/`:
 
@@ -58,24 +60,25 @@ git config --global core.longpaths true
 
 ## Results
 
-| Repository | Commit | TS/TSX files | Result | Duration | Fallback | Findings | Warnings | Top patterns |
-| --- | --- | ---: | --- | ---: | --- | ---: | ---: | --- |
-| `google-gemini/gemini-cli` | `85563da` | 2108 | ok | 12s | false | 247 | 1 | Non-null assertion on nullable: 129; Unsafe access after await: 46; Unprotected JSON.parse: 34; Unsafe property access: 29; Unsafe process.env access: 7; Unsafe Promise.all destructuring: 2 |
-| `vitejs/vite` | `b089c2b` | 563 | ok | 5s | false | 342 | 1 | Non-null assertion on nullable: 134; Unsafe property access: 97; Unsafe process.env access: 45; Unsafe array index access: 24; Unprotected JSON.parse: 23; Unsafe Map/Record access: 11; Unsafe destructuring: 4; Unsafe access after await: 3; Unsafe Promise.all destructuring: 1 |
-| `prisma/prisma` | `42f9102` | 2701 | ok | 9s | false | 267 | 1 | Unsafe process.env access: 97; Non-null assertion on nullable: 67; Unsafe property access: 66; Unprotected JSON.parse: 24; Unsafe access after await: 10; Unsafe Promise.all destructuring: 1; Unsafe array index access: 1; Unsafe Map/Record access: 1 |
-| `supabase/supabase` | `108a7c2c` | 6669 | ok | 13s | false | 157 | 1 | Unsafe process.env access: 110; Unprotected JSON.parse: 47 |
-| `vitest-dev/vitest` | `152750e` | 2038 | ok | 8s | false | 378 | 1 | Non-null assertion on nullable: 147; Unsafe property access: 92; Unsafe process.env access: 49; Unsafe array index access: 40; Unsafe access after await: 23; Unprotected JSON.parse: 16; Unsafe Map/Record access: 9; Unsafe destructuring: 2 |
-| `withastro/astro` | `1e49163` | 2094 | ok | 9s | false | 394 | 1 | Non-null assertion on nullable: 151; Unsafe property access: 119; Unsafe process.env access: 43; Unsafe array index access: 37; Unprotected JSON.parse: 23; Unsafe access after await: 16; Unsafe Map/Record access: 3; Unsafe destructuring: 2 |
+| Repository | Commit | TS/TSX files | Strategy | Result | Duration | Perf | Fallback | Findings | Warnings | Top patterns |
+| --- | --- | ---: | --- | --- | ---: | --- | --- | ---: | ---: | --- |
+| `google-gemini/gemini-cli` | `85563da` | 2108 | root-tsconfig | ok | 12s | ok | false | 247 | 1 | Non-null assertion on nullable: 129; Unsafe access after await: 46; Unprotected JSON.parse: 34; Unsafe property access: 29; Unsafe process.env access: 7; Unsafe Promise.all destructuring: 2 |
+| `vitejs/vite` | `b089c2b` | 563 | workspace-tsconfigs | ok | 16s | ok | false | 43 | 4 | Unprotected JSON.parse: 23; Non-null assertion on nullable: 9; Unsafe process.env access: 5; Unsafe property access: 2; Unsafe destructuring: 2; Unsafe array index access: 2 |
+| `prisma/prisma` | `42f9102` | 2701 | root-tsconfig | ok | 9s | ok | false | 267 | 1 | Unsafe process.env access: 97; Non-null assertion on nullable: 67; Unsafe property access: 66; Unprotected JSON.parse: 24; Unsafe access after await: 10; Unsafe Promise.all destructuring: 1; Unsafe array index access: 1; Unsafe Map/Record access: 1 |
+| `supabase/supabase` | `108a7c2c` | 6669 | root-tsconfig | ok | 13s | ok | false | 157 | 1 | Unsafe process.env access: 110; Unprotected JSON.parse: 47 |
+| `vitest-dev/vitest` | `152750e` | 2038 | workspace-tsconfigs | ok | 27s | ok | false | 298 | 3 | Non-null assertion on nullable: 191; Unsafe process.env access: 48; Unsafe property access: 19; Unsafe access after await: 18; Unprotected JSON.parse: 16; Unsafe array index access: 5; Unsafe Promise.all destructuring: 1 |
+| `withastro/astro` | `1e49163` | 2094 | workspace-tsconfigs | ok | 18s | ok | false | 394 | 5 | Non-null assertion on nullable: 151; Unsafe property access: 119; Unsafe process.env access: 43; Unsafe array index access: 37; Unprotected JSON.parse: 23; Unsafe access after await: 16; Unsafe Map/Record access: 3; Unsafe destructuring: 2 |
 
 ## Observations
 
 - SafeTS completed successfully on all six repositories without installing dependencies.
 - No repository fell back to AST-only mode.
-- Vite and Vitest do not expose a root `tsconfig.json`, so SafeTS used direct TypeScript scanning for them.
+- Vite and Vitest do not expose a root `tsconfig.json`, so SafeTS used nested workspace tsconfig discovery for them.
+- Test-only tsconfig discovery is skipped unless `--include-tests` is passed, which keeps default benchmark results focused on production source code.
 - Supabase and Prisma show that `process.env` findings dominate in large real repos.
 - Gemini CLI and Astro show that `Non-null assertion on nullable` and `Unsafe access after await` need careful false-positive review before teams use these patterns as hard CI gates.
 - Supabase filtered 3954 generated or bundled tsconfig inputs, which confirms that generated-file filtering matters in real monorepos.
-- Vite, Vitest, and Astro did not expose a usable root `tsconfig.json` to SafeTS and used direct TypeScript scanning instead. This is not fallback mode, but it is a clear input for workspace hardening.
+- Vite, Vitest, and Astro also scan files not covered by nested tsconfigs directly, so workspace mode does not silently skip uncovered TypeScript files.
 - This validation uncovered and fixed a project-boundary bug: SafeTS previously allowed TypeScript config discovery to climb outside the requested project root, which could accidentally analyze a parent repository instead of the target project.
 
 ## Follow-Up

@@ -37,6 +37,10 @@ function makeReport(crashes) {
       fallback: false,
       warnings: [],
       includeTests: false,
+      strategy: "direct-scan",
+      configFiles: [],
+      rootFileCount: crashes.length,
+      filteredFileCount: 0,
     },
   });
 }

@@ -161,6 +161,113 @@ function testDoesNotUseParentTsconfig() {
   );
 }
 
+function testUsesNestedTsconfig() {
+  const projectDir = createProject({
+    "packages/app/tsconfig.json": JSON.stringify({
+      compilerOptions: { strict: true },
+      include: ["src/**/*.ts"],
+    }),
+    "packages/app/src/app.ts": "const user: { name: string } | undefined = undefined;\nconsole.log(user.name);\n",
+  });
+
+  const result = runCli(["doctor", "--json"], projectDir);
+  assert(result.status === 0, "Expected nested tsconfig project scan to exit with code 0", result.stderr);
+
+  const report = JSON.parse(result.stdout);
+  assert(report.program.strategy === "workspace-tsconfigs", "Expected nested tsconfig strategy", result.stdout);
+  assert(
+    report.program.configFiles.includes("packages/app/tsconfig.json"),
+    "Expected JSON output to include nested tsconfig path",
+    result.stdout,
+  );
+  assert(report.summary.total >= 1, "Expected nested tsconfig files to be analyzed", result.stdout);
+}
+
+function testSolutionStyleRootTsconfigUsesWorkspaceWithoutMisleadingWarning() {
+  const projectDir = createProject({
+    "tsconfig.json": JSON.stringify({
+      files: [],
+      references: [{ path: "./packages/app" }],
+    }),
+    "packages/app/tsconfig.json": JSON.stringify({
+      compilerOptions: { strict: true },
+      include: ["src/**/*.ts"],
+    }),
+    "packages/app/src/app.ts": "JSON.parse('{}');\n",
+  });
+
+  const result = runCli(["doctor", "--json"], projectDir);
+  assert(result.status === 0, "Expected solution-style root project scan to exit with code 0", result.stderr);
+
+  const report = JSON.parse(result.stdout);
+  assert(report.program.strategy === "workspace-tsconfigs", "Expected solution-style root config to use workspace tsconfigs", result.stdout);
+  assert(
+    !report.program.warnings.includes("TypeChecker built but unusable - trying fallback options"),
+    "Expected solution-style root config not to emit a misleading TypeChecker warning",
+    result.stdout,
+  );
+  assert(report.summary.total >= 1, "Expected workspace files to be analyzed", result.stdout);
+}
+
+function testScansUncoveredFilesWhenNestedTsconfigsHaveLowCoverage() {
+  const projectDir = createProject({
+    "packages/fixture/tsconfig.json": JSON.stringify({
+      compilerOptions: { strict: true },
+      include: ["src/**/*.ts"],
+    }),
+    "packages/fixture/src/safe.ts": "const user = { name: 'Ada' };\nconsole.log(user.name);\n",
+    "src/app-a.ts": "JSON.parse('{}');\n",
+    "src/app-b.ts": "JSON.parse('{}');\n",
+    "src/app-c.ts": "JSON.parse('{}');\n",
+    "src/app-d.ts": "JSON.parse('{}');\n",
+  });
+
+  const result = runCli(["doctor", "--json"], projectDir);
+  assert(result.status === 0, "Expected low coverage workspace scan to exit with code 0", result.stderr);
+
+  const report = JSON.parse(result.stdout);
+  assert(report.program.strategy === "workspace-tsconfigs", "Expected workspace strategy with direct scan coverage for uncovered files", result.stdout);
+  assert(
+    report.program.warnings.some((warning) => warning.includes("scanning 4 uncovered file(s) directly")),
+    "Expected uncovered file coverage warning",
+    result.stdout,
+  );
+  assert(report.summary.total >= 4, "Expected direct scan to analyze files outside low coverage tsconfig", result.stdout);
+  assert(
+    report.crashes.some((crash) => crash.file === "src/app-a.ts"),
+    "Expected direct scan findings to include files outside the low coverage tsconfig",
+    result.stdout,
+  );
+}
+
+function testSkipsTestTsconfigsByDefault() {
+  const projectDir = createProject({
+    "test/tsconfig.json": JSON.stringify({
+      compilerOptions: { strict: true },
+      include: ["**/*.ts"],
+    }),
+    "test/app.test.ts": "JSON.parse('{}');\n",
+    "src/app.ts": "JSON.parse('{}');\n",
+  });
+
+  const result = runCli(["doctor", "--json"], projectDir);
+  assert(result.status === 0, "Expected default scan to exit with code 0", result.stderr);
+
+  const report = JSON.parse(result.stdout);
+  assert(report.program.strategy === "direct-scan", "Expected test-only tsconfig to be skipped by default", result.stdout);
+  assert(
+    !report.program.configFiles.includes("test/tsconfig.json"),
+    "Expected JSON output not to include skipped test tsconfig",
+    result.stdout,
+  );
+  assert(report.summary.total === 1, "Expected default scan to exclude test findings", result.stdout);
+  assert(
+    report.crashes.every((crash) => crash.file === "src/app.ts"),
+    "Expected only source findings when test files are excluded",
+    result.stdout,
+  );
+}
+
 try {
   testHelp();
   testVersion();
@@ -171,6 +278,10 @@ try {
   testInvalidFlagCombination();
   testFixNoSuggestionsMessage();
   testDoesNotUseParentTsconfig();
+  testUsesNestedTsconfig();
+  testSolutionStyleRootTsconfigUsesWorkspaceWithoutMisleadingWarning();
+  testScansUncoveredFilesWhenNestedTsconfigsHaveLowCoverage();
+  testSkipsTestTsconfigsByDefault();
   console.log("CLI contract checks passed.");
 } finally {
   cleanupTempDirs();
