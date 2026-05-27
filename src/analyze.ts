@@ -135,11 +135,15 @@ export function loadProgramRobust(
         };
       }
 
-      warnings.push(
-        result.errors.length > 0
-          ? "tsconfig.json found but could not be parsed"
-          : "TypeChecker built but unusable - trying fallback options",
-      );
+      if (result.filteredFileNames.length > 0) {
+        warnings.push(
+          result.errors.length > 0
+            ? "tsconfig.json found but could not be parsed"
+            : "TypeChecker built but unusable - trying fallback options",
+        );
+      } else if (result.errors.length > 0) {
+        warnings.push("tsconfig.json found but could not be parsed");
+      }
     }
   } catch (error) {
     warnings.push(`tsconfig load error: ${(error as Error).message}`);

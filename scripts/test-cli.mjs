@@ -183,6 +183,32 @@ function testUsesNestedTsconfig() {
   assert(report.summary.total >= 1, "Expected nested tsconfig files to be analyzed", result.stdout);
 }
 
+function testSolutionStyleRootTsconfigUsesWorkspaceWithoutMisleadingWarning() {
+  const projectDir = createProject({
+    "tsconfig.json": JSON.stringify({
+      files: [],
+      references: [{ path: "./packages/app" }],
+    }),
+    "packages/app/tsconfig.json": JSON.stringify({
+      compilerOptions: { strict: true },
+      include: ["src/**/*.ts"],
+    }),
+    "packages/app/src/app.ts": "JSON.parse('{}');\n",
+  });
+
+  const result = runCli(["doctor", "--json"], projectDir);
+  assert(result.status === 0, "Expected solution-style root project scan to exit with code 0", result.stderr);
+
+  const report = JSON.parse(result.stdout);
+  assert(report.program.strategy === "workspace-tsconfigs", "Expected solution-style root config to use workspace tsconfigs", result.stdout);
+  assert(
+    !report.program.warnings.includes("TypeChecker built but unusable - trying fallback options"),
+    "Expected solution-style root config not to emit a misleading TypeChecker warning",
+    result.stdout,
+  );
+  assert(report.summary.total >= 1, "Expected workspace files to be analyzed", result.stdout);
+}
+
 function testScansUncoveredFilesWhenNestedTsconfigsHaveLowCoverage() {
   const projectDir = createProject({
     "packages/fixture/tsconfig.json": JSON.stringify({
@@ -253,6 +279,7 @@ try {
   testFixNoSuggestionsMessage();
   testDoesNotUseParentTsconfig();
   testUsesNestedTsconfig();
+  testSolutionStyleRootTsconfigUsesWorkspaceWithoutMisleadingWarning();
   testScansUncoveredFilesWhenNestedTsconfigsHaveLowCoverage();
   testSkipsTestTsconfigsByDefault();
   console.log("CLI contract checks passed.");
