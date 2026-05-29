@@ -126,6 +126,18 @@ safets doctor --fail-on-new
 
 The baseline stores scan options such as `includeTests`. If you run `doctor --fail-on-new` with different options than the saved baseline, SafeTS will refuse the comparison and ask you to regenerate the baseline.
 
+### GitHub Action
+
+SafeTS can run directly in GitHub Actions:
+
+```yaml
+- uses: Dioman-Keita/safets@v0.8.0
+  with:
+    fail-on-new: "true"
+```
+
+See [docs/github-action.md](./docs/github-action.md) for the full workflow, inputs, and baseline setup.
+
 ### Debt Tracking
 
 ```bash

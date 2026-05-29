@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:smoke && npm run test:cli && npm run test:detectors && npm run test:integration && npm run test:json",
+    "test": "npm run test:smoke && npm run test:cli && npm run test:detectors && npm run test:integration && npm run test:json && npm run test:action",
+    "test:action": "node scripts/test-github-action.mjs",
     "test:cli": "node scripts/test-cli.mjs",
     "test:detectors": "node scripts/test-detectors.mjs",
     "test:integration": "node scripts/test-cli-integration.mjs",
