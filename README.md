@@ -184,10 +184,16 @@ Detector architecture and contribution expectations are documented in [docs/dete
 SafeTS includes an installable Codex skill for AI agents:
 
 ```bash
-python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo Dioman-Keita/safets --path skills/safets-agent
+npx skills add Dioman-Keita/safets
 ```
 
-After installation, restart Codex and invoke `$safets-agent` when an agent should run or interpret SafeTS on a TypeScript project.
+For a non-interactive Codex install:
+
+```bash
+npx skills add Dioman-Keita/safets --skill safets-agent -a codex -g -y
+```
+
+After installation, restart the agent and invoke `$safets-agent` when an agent should run or interpret SafeTS on a TypeScript project.
 
 ## Roadmap
 
