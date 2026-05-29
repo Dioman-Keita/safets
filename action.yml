@@ -38,21 +38,27 @@ runs:
     - name: Run SafeTS
       shell: bash
       working-directory: ${{ inputs.working-directory }}
+      env:
+        INPUT_COMMAND: ${{ inputs.command }}
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_FAIL_ON_NEW: ${{ inputs.fail-on-new }}
+        INPUT_INCLUDE_TESTS: ${{ inputs.include-tests }}
+        INPUT_JSON: ${{ inputs.json }}
       run: |
         set -euo pipefail
 
-        args=("${{ inputs.command }}")
+        args=("$INPUT_COMMAND")
 
-        if [[ "${{ inputs.fail-on-new }}" == "true" ]]; then
+        if [[ "$INPUT_FAIL_ON_NEW" == "true" ]]; then
           args+=("--fail-on-new")
         fi
 
-        if [[ "${{ inputs.include-tests }}" == "true" ]]; then
+        if [[ "$INPUT_INCLUDE_TESTS" == "true" ]]; then
           args+=("--include-tests")
         fi
 
-        if [[ "${{ inputs.json }}" == "true" ]]; then
+        if [[ "$INPUT_JSON" == "true" ]]; then
           args+=("--json")
         fi
 
-        npx --yes "safets@${{ inputs.version }}" "${args[@]}"
+        npx --yes "safets@$INPUT_VERSION" "${args[@]}"

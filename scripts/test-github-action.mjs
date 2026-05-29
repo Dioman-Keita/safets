@@ -20,11 +20,24 @@ for (const expected of [
   "fail-on-new:",
   "include-tests:",
   "json:",
-  "npx --yes \"safets@${{ inputs.version }}\"",
+  "INPUT_COMMAND: ${{ inputs.command }}",
+  "INPUT_VERSION: ${{ inputs.version }}",
+  "INPUT_FAIL_ON_NEW: ${{ inputs.fail-on-new }}",
+  "INPUT_INCLUDE_TESTS: ${{ inputs.include-tests }}",
+  "INPUT_JSON: ${{ inputs.json }}",
+  "npx --yes \"safets@$INPUT_VERSION\"",
 ]) {
   assert(action.includes(expected), `Expected action.yml to include ${expected}`);
 }
 
+assert(
+  !action.includes("args=(\"${{ inputs.command }}\")"),
+  "Expected action.yml not to splice command input directly into bash",
+);
+assert(
+  !action.includes("safets@${{ inputs.version }}"),
+  "Expected action.yml not to splice version input directly into bash",
+);
 assert(
   action.includes("args+=(\"--fail-on-new\")"),
   "Expected action.yml to wire fail-on-new input to the CLI flag",
