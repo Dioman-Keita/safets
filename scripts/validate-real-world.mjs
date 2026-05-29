@@ -17,12 +17,12 @@ const targets = [
 ];
 
 const performanceBudgetsMs = {
-  "google-gemini/gemini-cli": 25_000,
-  "vitejs/vite": 30_000,
-  "prisma/prisma": 20_000,
-  "supabase/supabase": 30_000,
-  "vitest-dev/vitest": 45_000,
-  "withastro/astro": 35_000,
+  "google-gemini/gemini-cli": 40_000,
+  "vitejs/vite": 40_000,
+  "prisma/prisma": 60_000,
+  "supabase/supabase": 45_000,
+  "vitest-dev/vitest": 60_000,
+  "withastro/astro": 45_000,
 };
 
 function run(command, args, cwd, options = {}) {

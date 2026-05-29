@@ -1,10 +1,10 @@
 {
   "name": "safets",
-  "version": "0.8.0",
+  "version": "1.0.0",
   "description": "Finds common runtime crashes TypeScript can't detect",
   "type": "module",
   "bin": {
-    "safets": "./dist/index.js"
+    "safets": "dist/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

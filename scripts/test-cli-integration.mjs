@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cliEntrypoint = path.join(repoRoot, "dist", "index.js");
 const fixtureProject = path.join(repoRoot, "cases", "cli-project");
+const packageVersion = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8")).version;
 const tempDirs = new Set();
 
 function stripAnsi(text) {
@@ -85,7 +86,7 @@ function testDoctorJsonFailOnNew() {
   fs.writeFileSync(
     path.join(projectDir, ".safets-baseline.json"),
     JSON.stringify({
-      version: "0.8.0",
+      version: packageVersion,
       date: new Date().toISOString(),
       options: { includeTests: false },
       crashes: [],
@@ -106,7 +107,7 @@ function testDoctorJsonFailOnNewDoesNotSaveBaseline() {
   const projectDir = createProjectFromFixture();
   const baselinePath = path.join(projectDir, ".safets-baseline.json");
   const baselineContent = JSON.stringify({
-    version: "0.8.0",
+    version: packageVersion,
     date: new Date().toISOString(),
     options: { includeTests: false },
     crashes: [],

@@ -1,4 +1,10 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildJsonReport } from "../dist/reporters/json.js";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const packageVersion = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8")).version;
 
 function assert(condition, message, details) {
   if (!condition) {
@@ -27,7 +33,7 @@ function makeReport(crashes) {
     command: "fix",
     crashes,
     root: process.cwd(),
-    version: "0.8.0",
+    version: packageVersion,
     includeTests: false,
     failOnNew: false,
     baseline: null,
