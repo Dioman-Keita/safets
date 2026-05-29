@@ -19,7 +19,7 @@ npm install --save-dev @safets-org/cli typescript
 With Bun:
 
 ```bash
-bun add -d @safets-org/cli typescript
+bun add -D @safets-org/cli typescript
 ```
 
 With pnpm:
