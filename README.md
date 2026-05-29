@@ -179,6 +179,22 @@ SafeTS releases follow the documented workflow in [docs/release.md](./docs/relea
 
 Detector architecture and contribution expectations are documented in [docs/detectors.md](./docs/detectors.md).
 
+## AI Agent Skill
+
+SafeTS includes an installable Codex skill for AI agents:
+
+```bash
+npx skills add Dioman-Keita/safets
+```
+
+For a non-interactive Codex install:
+
+```bash
+npx skills add Dioman-Keita/safets --skill safets-agent -a codex -g -y
+```
+
+After installation, restart the agent and invoke `$safets-agent` when an agent should run or interpret SafeTS on a TypeScript project.
+
 ## Roadmap
 
 The launch plan is tracked in [ROADMAP.md](./ROADMAP.md).
