@@ -61,4 +61,8 @@ runs:
           args+=("--json")
         fi
 
-        npx --yes -p "@safets-org/cli@$INPUT_VERSION" safets "${args[@]}"
+        safets_dir="$(mktemp -d)"
+        trap 'rm -rf "$safets_dir"' EXIT
+
+        npm install --prefix "$safets_dir" --no-save --silent "@safets-org/cli@$INPUT_VERSION"
+        "$safets_dir/node_modules/.bin/safets" "${args[@]}"

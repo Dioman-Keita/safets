@@ -25,7 +25,8 @@ for (const expected of [
   "INPUT_FAIL_ON_NEW: ${{ inputs.fail-on-new }}",
   "INPUT_INCLUDE_TESTS: ${{ inputs.include-tests }}",
   "INPUT_JSON: ${{ inputs.json }}",
-  "npx --yes -p \"@safets-org/cli@$INPUT_VERSION\" safets",
+  "npm install --prefix \"$safets_dir\" --no-save --silent \"@safets-org/cli@$INPUT_VERSION\"",
+  "\"$safets_dir/node_modules/.bin/safets\" \"${args[@]}\"",
 ]) {
   assert(action.includes(expected), `Expected action.yml to include ${expected}`);
 }

@@ -96,3 +96,26 @@ jobs:
           npx safets doctor > output.txt
           grep -q "SafeTS v" output.txt
           grep -Eq "OK No potential runtime crashes found|Runtime Safety Report" output.txt
+
+  safets-action:
+    name: SafeTS Action dogfood
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run SafeTS action
+        uses: ./
+        with:
+          version: "1.0.0"
+          fail-on-new: "true"
