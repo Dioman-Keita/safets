@@ -1,0 +1,8 @@
+interface:
+  display_name: "SafeTS Agent"
+  short_description: "Run TypeScript runtime-safety checks"
+  brand_color: "#0EA5E9"
+  default_prompt: "Use $safets-agent to run SafeTS on this TypeScript repo and summarize runtime crash risks."
+
+policy:
+  allow_implicit_invocation: true
