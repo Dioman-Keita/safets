@@ -1,4 +1,4 @@
-name: SafeTS
+name: SafeTS Runtime Safety Check
 description: Find common runtime crashes TypeScript cannot detect.
 author: Dioman-Keita
 
