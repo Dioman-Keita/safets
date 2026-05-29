@@ -114,8 +114,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run published SafeTS action
-        uses: Dioman-Keita/safets@v1.0.0
+      - name: Run SafeTS action
+        uses: ./
         with:
           version: "1.0.0"
           fail-on-new: "true"

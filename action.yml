@@ -61,4 +61,4 @@ runs:
           args+=("--json")
         fi
 
-        npx --yes -p "@safets-org/cli@$INPUT_VERSION" safets "${args[@]}"
+        npm exec --yes --package "@safets-org/cli@$INPUT_VERSION" -- safets "${args[@]}"
