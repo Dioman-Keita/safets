@@ -1,6 +1,6 @@
 {
   "name": "@safets-org/cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Finds common runtime crashes TypeScript can't detect",
   "type": "module",
   "bin": {

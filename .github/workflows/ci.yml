@@ -117,5 +117,5 @@ jobs:
       - name: Run SafeTS action
         uses: ./
         with:
-          version: "1.0.0"
+          version: "1.0.1"
           fail-on-new: "true"
