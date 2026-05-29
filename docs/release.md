@@ -66,7 +66,7 @@ After bumping, update docs that mention the version explicitly, especially GitHu
 Commit the bump:
 
 ```bash
-git add package.json package-lock.json README.md docs
+git add package.json package-lock.json README.md docs/release.md
 git commit -m "chore: release vX.Y.Z"
 ```
 
@@ -109,7 +109,9 @@ npm publish --dry-run
 npm publish
 ```
 
-If publishing a stable release after an RC, promote with:
+By default, `npm publish` for a stable version publishes to `latest`, so no dist-tag command is needed.
+
+Use `npm dist-tag` only if the final stable version was intentionally published to `next` first for smoke testing. Do not promote a pre-release such as `1.0.0-rc.1` to `latest`.
 
 ```bash
 npm dist-tag add safets@X.Y.Z latest
