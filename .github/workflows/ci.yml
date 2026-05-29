@@ -119,3 +119,30 @@ jobs:
         with:
           version: "latest"
           fail-on-new: "true"
+
+  docs-site:
+    name: Docs site
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Install docs dependencies
+        working-directory: docs-site
+        run: npm ci
+
+      - name: Typecheck docs site
+        working-directory: docs-site
+        run: npm run typecheck
+
+      - name: Build docs site
+        working-directory: docs-site
+        run: npm run build
