@@ -85,7 +85,7 @@ function testDoctorJsonFailOnNew() {
   fs.writeFileSync(
     path.join(projectDir, ".safets-baseline.json"),
     JSON.stringify({
-      version: "0.8.0",
+      version: "1.0.0",
       date: new Date().toISOString(),
       options: { includeTests: false },
       crashes: [],
@@ -106,7 +106,7 @@ function testDoctorJsonFailOnNewDoesNotSaveBaseline() {
   const projectDir = createProjectFromFixture();
   const baselinePath = path.join(projectDir, ".safets-baseline.json");
   const baselineContent = JSON.stringify({
-    version: "0.8.0",
+    version: "1.0.0",
     date: new Date().toISOString(),
     options: { includeTests: false },
     crashes: [],

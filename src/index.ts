@@ -120,7 +120,7 @@ if (jsonOutput) {
     command === "baseline" ||
     (command === "doctor" && withBase && !failOnNewWillFail);
   const savedBaseline = shouldSaveBaseline
-    ? saveBaseline(crashes, root, programResult, { quiet: true })
+    ? saveBaseline(crashes, root, programResult, version, { quiet: true })
     : null;
 
   printJsonReport({
@@ -152,7 +152,7 @@ switch (command) {
     printFix(crashes, root);
     break;
   case "baseline":
-    saveBaseline(crashes, root, programResult);
+    saveBaseline(crashes, root, programResult, version);
     break;
   case "doctor":
   default:
@@ -165,7 +165,7 @@ switch (command) {
       baselineMismatch,
     );
     if (withBase) {
-      saveBaseline(crashes, root, programResult);
+      saveBaseline(crashes, root, programResult, version);
     }
     break;
 }

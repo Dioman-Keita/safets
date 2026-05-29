@@ -27,7 +27,7 @@ function makeReport(crashes) {
     command: "fix",
     crashes,
     root: process.cwd(),
-    version: "0.8.0",
+    version: "1.0.0",
     includeTests: false,
     failOnNew: false,
     baseline: null,

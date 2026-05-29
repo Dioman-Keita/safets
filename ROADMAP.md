@@ -99,5 +99,5 @@ Tracked issues:
 
 ## Current Status
 
-- Active milestone: Phase 3: Community Adoption
-- Immediate focus: finish detector authoring and contribution docs, then prepare the v1.0.0 stabilization gate
+- Active milestone: v1.0.0 Release Preparation
+- Immediate focus: validate, tag, publish npm, and publish the GitHub Action Marketplace listing only after the release gate passes

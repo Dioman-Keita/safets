@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - uses: Dioman-Keita/safets@v0.8.0
+      - uses: Dioman-Keita/safets@v1.0.0
 ```
 
 The default action command is `safets doctor`.
@@ -52,7 +52,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - uses: Dioman-Keita/safets@v0.8.0
+      - uses: Dioman-Keita/safets@v1.0.0
         with:
           fail-on-new: "true"
 ```
@@ -71,8 +71,8 @@ jobs:
 For reproducible CI, pin both the action ref and npm package version:
 
 ```yaml
-- uses: Dioman-Keita/safets@v0.8.0
+- uses: Dioman-Keita/safets@v1.0.0
   with:
-    version: 0.8.0
+    version: 1.0.0
     fail-on-new: "true"
 ```

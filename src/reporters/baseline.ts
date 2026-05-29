@@ -10,10 +10,11 @@ export function saveBaseline(
   crashes: CrashReport[],
   root: string,
   programResult: ProgramResult,
+  version: string,
   options: { quiet?: boolean } = {},
 ): Baseline {
   const baseline: Baseline = {
-    version: "0.8.0",
+    version,
     date: new Date().toISOString(),
     options: { includeTests: programResult.includeTests },
     crashes: crashes.map((crash) => ({
