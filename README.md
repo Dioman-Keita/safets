@@ -157,6 +157,10 @@ When a baseline exists, `debt` shows the delta per category since the snapshot.
 
 MIT
 
+## Releases
+
+SafeTS releases follow the documented workflow in [docs/release.md](./docs/release.md).
+
 ## Roadmap
 
 The launch plan is tracked in [ROADMAP.md](./ROADMAP.md).

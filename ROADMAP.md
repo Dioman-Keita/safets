@@ -99,5 +99,5 @@ Tracked issues:
 
 ## Current Status
 
-- Active milestone: Phase 2: Developer Adoption
-- Immediate focus: validate SafeTS on real TypeScript repositories, then harden baseline, debt, and workspace behavior
+- Active milestone: Phase 3: Community Adoption
+- Immediate focus: document release/versioning workflow, then document detector authoring and contribution guidelines
