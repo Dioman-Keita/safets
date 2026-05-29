@@ -14,8 +14,7 @@ SafeTS is read-only: it reports runtime crash risks and suggestions, but does no
 ## Quick Workflow
 
 1. Detect the project root and package manager:
-   - `bun.lock` -> Bun
-   - `bun.lockb` -> Bun
+   - `bun.lock` or `bun.lockb` -> Bun
    - `pnpm-lock.yaml` -> pnpm
    - `package-lock.json` -> npm
    - otherwise use npm unless the user says otherwise
