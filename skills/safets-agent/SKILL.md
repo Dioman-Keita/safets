@@ -15,6 +15,7 @@ SafeTS is read-only: it reports runtime crash risks and suggestions, but does no
 
 1. Detect the project root and package manager:
    - `bun.lock` -> Bun
+   - `bun.lockb` -> Bun
    - `pnpm-lock.yaml` -> pnpm
    - `package-lock.json` -> npm
    - otherwise use npm unless the user says otherwise
@@ -59,9 +60,12 @@ On Windows PowerShell:
 ```powershell
 $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("safets-" + [System.Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $tmp | Out-Null
-npm install --prefix $tmp --no-save --silent @safets-org/cli@latest
-& "$tmp\node_modules\.bin\safets.cmd" doctor
-Remove-Item -LiteralPath $tmp -Recurse -Force
+try {
+  npm install --prefix $tmp --no-save --silent @safets-org/cli@latest
+  & "$tmp\node_modules\.bin\safets.cmd" doctor
+} finally {
+  Remove-Item -LiteralPath $tmp -Recurse -Force
+}
 ```
 
 Use the isolated pattern instead of `npx -p @safets-org/cli safets` when reliability matters, because scoped package names and binary names differ.
@@ -126,4 +130,3 @@ In the final response, include:
 - Any warnings or fallback mode.
 - Files changed, if the agent made code or CI edits.
 - Verification performed.
-
