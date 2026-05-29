@@ -31,7 +31,7 @@ The default action command is `safets doctor`.
 To block only newly introduced crashes, commit a SafeTS baseline first:
 
 ```bash
-npx safets baseline
+npx @safets-org/cli baseline
 git add .safets-baseline.json
 git commit -m "chore: add SafeTS baseline"
 ```

@@ -75,8 +75,8 @@ git commit -m "chore: release vX.Y.Z"
 Use this before `1.0.0` or any risky release:
 
 ```bash
-npm publish --tag next --dry-run
-npm publish --tag next
+npm publish --access=public --tag next --dry-run
+npm publish --access=public --tag next
 ```
 
 Then validate the published package from a clean project:
@@ -85,7 +85,7 @@ Then validate the published package from a clean project:
 mkdir /tmp/safets-release-smoke
 cd /tmp/safets-release-smoke
 npm init -y
-npm install --save-dev safets@next typescript
+npm install --save-dev @safets-org/cli@next typescript
 npx safets --version
 npx safets doctor
 ```
@@ -105,8 +105,8 @@ npm run typecheck
 npm test
 npm run pack:check
 npm run validate:real-world
-npm publish --dry-run
-npm publish
+npm publish --access=public --dry-run
+npm publish --access=public
 ```
 
 By default, `npm publish` for a stable version publishes to `latest`, so no dist-tag command is needed.
@@ -114,7 +114,7 @@ By default, `npm publish` for a stable version publishes to `latest`, so no dist
 Use `npm dist-tag` only if the final stable version was intentionally published to `next` first for smoke testing. Do not promote a pre-release such as `1.0.0-rc.1` to `latest`.
 
 ```bash
-npm dist-tag add safets@X.Y.Z latest
+npm dist-tag add @safets-org/cli@X.Y.Z latest
 ```
 
 ## Git Tag And GitHub Release
@@ -153,7 +153,7 @@ If npm publish succeeds but the release is broken:
 2. Move `latest` back to the previous stable version:
 
 ```bash
-npm dist-tag add safets@PREVIOUS_VERSION latest
+npm dist-tag add @safets-org/cli@PREVIOUS_VERSION latest
 ```
 
 3. Open a hotfix issue and release a patch.
@@ -165,7 +165,7 @@ If a GitHub Action tag is wrong, do not move an existing release tag casually. P
 
 Do not publish `1.0.0` until:
 
-- npm install works without `ts-node`.
+- npm install of `@safets-org/cli` works without `ts-node`.
 - `safets doctor`, `baseline`, `debt`, `fix`, `--json`, and `--fail-on-new` are covered by tests.
 - Real-world validation passes with performance budgets.
 - GitHub Action adoption is documented and tested.
