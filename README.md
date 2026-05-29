@@ -161,6 +161,10 @@ MIT
 
 SafeTS releases follow the documented workflow in [docs/release.md](./docs/release.md).
 
+## Contributing
+
+Detector architecture and contribution expectations are documented in [docs/detectors.md](./docs/detectors.md).
+
 ## Roadmap
 
 The launch plan is tracked in [ROADMAP.md](./ROADMAP.md).

@@ -100,4 +100,4 @@ Tracked issues:
 ## Current Status
 
 - Active milestone: Phase 3: Community Adoption
-- Immediate focus: document release/versioning workflow, then document detector authoring and contribution guidelines
+- Immediate focus: finish detector authoring and contribution docs, then prepare the v1.0.0 stabilization gate
