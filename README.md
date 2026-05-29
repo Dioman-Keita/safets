@@ -16,6 +16,18 @@ Cannot read properties of undefined (reading 'name')
 npm install --save-dev @safets-org/cli typescript
 ```
 
+With Bun:
+
+```bash
+bun add -D @safets-org/cli typescript
+```
+
+With pnpm:
+
+```bash
+pnpm add -D @safets-org/cli typescript
+```
+
 No runtime TypeScript loader is required. SafeTS uses the TypeScript compiler already in your project.
 
 The npm package is scoped as `@safets-org/cli`, but the installed command is still `safets`.
