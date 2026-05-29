@@ -61,4 +61,4 @@ runs:
           args+=("--json")
         fi
 
-        npx --yes "@safets-org/cli@$INPUT_VERSION" "${args[@]}"
+        npx --yes -p "@safets-org/cli@$INPUT_VERSION" safets "${args[@]}"
