@@ -45,7 +45,7 @@ Every detector finding must produce a `CrashReport` with:
 - `confidence`: `HIGH` for direct runtime-crash risks, `MEDIUM` for heuristic or flow-sensitive risks.
 - `crashPath`: short explanation steps showing how the runtime crash can happen.
 
-If you add a new pattern, update `PatternName` in `src/utils/types.ts` and ensure reporters still group and display it correctly.
+If you add a new pattern, update `PatternName` in `src/utils/types.ts`, ensure reporters still group and display it correctly, and add any corresponding fix suggestions in `src/reporters/`.
 
 ## Quality Bar
 
@@ -61,7 +61,7 @@ New detectors should be narrow before they are broad.
 ## Adding Or Updating A Detector
 
 1. Add or update the detector function in `src/detectors/index.ts`.
-2. Register it in `analyze()` in `src/analyze.ts` if it is a new detector.
+2. Register it in `analyzeProgram()` in `src/analyze.ts` if it is a new detector.
 3. Add the pattern name to `src/utils/types.ts` if needed.
 4. Add unsafe fixtures under `cases/detectors-project/unsafe-*.ts`.
 5. Add safe fixtures under `cases/detectors-project/safe-*.ts`.
