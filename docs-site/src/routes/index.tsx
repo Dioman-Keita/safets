@@ -84,13 +84,18 @@ function HomePage() {
           </motion.div>
         </section>
 
-        <section className="border-y border-border px-6 py-8">
-          <div className="mx-auto flex max-w-[90rem] flex-wrap items-center justify-center gap-x-8 gap-y-4">
-            {trustedSignals.map((signal) => (
-              <span key={signal} className="font-mono text-xs uppercase tracking-[0.2em] text-subtle">
-                {signal}
-              </span>
-            ))}
+        <section className="border-y border-border bg-primary/10 py-7">
+          <div className="scrollbar-none overflow-x-auto">
+            <div className="mx-auto flex w-max min-w-full items-center justify-start gap-10 px-10 sm:justify-center">
+              {trustedSignals.map((signal) => (
+                <span
+                  key={signal}
+                  className="shrink-0 font-mono text-xs uppercase tracking-[0.28em] text-muted"
+                >
+                  {signal}
+                </span>
+              ))}
+            </div>
           </div>
         </section>
 
