@@ -127,7 +127,7 @@ export const installTabs = [
     run: "pnpm exec safets doctor",
   },
   {
-    manager: "Bun",
+    manager: "bun",
     install: "bun add -D @safets-org/cli typescript",
     run: "bunx safets doctor",
   },

@@ -20,13 +20,13 @@ export function DetectorCard({
   return (
     <Card className="group p-0">
       <div className="flex items-start gap-4 border-b border-border p-6">
-        <div className="rounded-2xl border border-indigo-300/20 bg-indigo-400/10 p-3 text-indigo-200">
+        <div className="rounded-lg border border-border p-3 text-muted">
           <Icon className="h-5 w-5" />
         </div>
         <div>
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <h3 className="text-xl font-semibold tracking-tight">{name}</h3>
-            <span className="rounded-full border border-border bg-white/[0.04] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-subtle">
+            <span className="rounded-md border border-border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-subtle">
               {confidence}
             </span>
           </div>
