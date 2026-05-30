@@ -67,9 +67,11 @@ const code = computed(() =>
       <button
         v-for="manager in managers"
         :key="manager.name"
+        :id="`pm-tabs-tab-${manager.name}`"
         type="button"
         role="tab"
         :aria-selected="selected.name === manager.name"
+        aria-controls="pm-tabs-panel"
         class="pm-tabs__button"
         :class="{ 'pm-tabs__button--active': selected.name === manager.name }"
         @click="selected = manager"
@@ -78,7 +80,12 @@ const code = computed(() =>
       </button>
     </div>
 
-    <div class="pm-tabs__panel">
+    <div
+      id="pm-tabs-panel"
+      class="pm-tabs__panel"
+      role="tabpanel"
+      :aria-labelledby="`pm-tabs-tab-${selected.name}`"
+    >
       <pre><code>{{ code }}</code></pre>
     </div>
 

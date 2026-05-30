@@ -75,6 +75,11 @@
   background: var(--vp-c-brand-soft);
 }
 
+.pm-tabs__button:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 2px;
+}
+
 .pm-tabs__panel {
   background: var(--vp-code-block-bg);
 }
