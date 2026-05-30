@@ -38,3 +38,67 @@
 .vp-doc p code {
   font-size: 0.85em;
 }
+
+.pm-tabs {
+  margin: 24px 0;
+  overflow: hidden;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 14px;
+  background: var(--vp-c-bg-soft);
+}
+
+.pm-tabs__buttons {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.pm-tabs__button {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 6px 14px;
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: lowercase;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.pm-tabs__button:hover,
+.pm-tabs__button--active {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+  background: var(--vp-c-brand-soft);
+}
+
+.pm-tabs__button:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 2px;
+}
+
+.pm-tabs__panel {
+  background: var(--vp-code-block-bg);
+}
+
+.pm-tabs__panel pre {
+  margin: 0;
+  overflow-x: auto;
+  padding: 18px;
+}
+
+.pm-tabs__panel code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.pm-tabs__note {
+  margin: 0;
+  padding: 12px 16px 14px;
+  color: var(--vp-c-text-2);
+  font-size: 14px;
+}
