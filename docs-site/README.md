@@ -21,3 +21,5 @@ npm run build
 
 Create a Vercel project and set the Root Directory to `docs-site`.
 
+Keep the build command as `npm run build`. TanStack Start uses Nitro here, so Vercel receives a `.vercel/output` build with static assets plus a server function for route rendering.
+

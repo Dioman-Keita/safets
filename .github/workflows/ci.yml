@@ -146,3 +146,11 @@ jobs:
       - name: Build docs site
         working-directory: docs-site
         run: npm run build
+
+      - name: Verify Vercel output
+        working-directory: docs-site
+        shell: bash
+        run: |
+          test -f .vercel/output/config.json
+          test -f .vercel/output/functions/__server.func/index.mjs
+          grep -q '"/__server"' .vercel/output/config.json

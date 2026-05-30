@@ -2,20 +2,49 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-border: hsl(var(--border));
+  --color-muted: hsl(var(--muted));
+  --color-subtle: hsl(var(--subtle));
+  --color-ring: hsl(var(--ring));
+}
+
 :root {
   font-family:
-    "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
-  color-scheme: light;
-  --background: 43 49% 94%;
-  --foreground: 222 47% 11%;
-  --ring: 195 85% 41%;
+    "Inter Tight", "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+  color-scheme: dark;
+  --background: 225 32% 6%;
+  --foreground: 220 28% 96%;
+  --card: 224 28% 9%;
+  --border: 225 18% 18%;
+  --muted: 220 12% 68%;
+  --subtle: 220 10% 46%;
+  --ring: 239 84% 67%;
 }
 
 .dark {
   color-scheme: dark;
-  --background: 220 36% 5%;
-  --foreground: 210 40% 98%;
-  --ring: 187 92% 69%;
+  --background: 225 32% 6%;
+  --foreground: 220 28% 96%;
+  --card: 224 28% 9%;
+  --border: 225 18% 18%;
+  --muted: 220 12% 68%;
+  --subtle: 220 10% 46%;
+  --ring: 239 84% 67%;
+}
+
+.light {
+  color-scheme: light;
+  --background: 220 33% 98%;
+  --foreground: 225 28% 8%;
+  --card: 0 0% 100%;
+  --border: 220 16% 88%;
+  --muted: 225 10% 42%;
+  --subtle: 225 8% 58%;
+  --ring: 239 84% 67%;
 }
 
 * {
@@ -31,8 +60,68 @@ body {
   min-width: 320px;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
+  text-rendering: optimizeLegibility;
 }
 
 ::selection {
-  background: rgba(20, 184, 166, 0.35);
+  background: rgba(129, 140, 248, 0.35);
+}
+
+.docs-content {
+  display: grid;
+  gap: 4rem;
+}
+
+.docs-content h2 {
+  margin-bottom: 1rem;
+  scroll-margin-top: 7rem;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+}
+
+.docs-content h3 {
+  margin-bottom: 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.docs-content p {
+  margin-bottom: 1.25rem;
+  max-width: 68ch;
+  color: hsl(var(--muted));
+  line-height: 1.8;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-float {
+  animation: float 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
