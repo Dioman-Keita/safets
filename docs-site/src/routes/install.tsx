@@ -25,6 +25,11 @@ function InstallPage() {
       >
         <section id="package-managers">
           <h2>Package managers</h2>
+          <p>
+            These commands run the local SafeTS binary after installation. Use
+            package scripts for daily workflows, but use `exec`/`bunx` when you
+            want to invoke the binary directly.
+          </p>
           <div className="grid gap-4 lg:grid-cols-3">
             {installTabs.map((tab) => (
               <Card key={tab.manager}>

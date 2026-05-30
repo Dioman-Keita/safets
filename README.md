@@ -36,6 +36,16 @@ The npm package is scoped as `@safets-org/cli`, but the installed command is sti
 
 ## Usage
 
+Run the installed `safets` binary with your package manager:
+
+```bash
+npx safets doctor
+pnpm exec safets doctor
+bunx safets doctor
+```
+
+Or add package scripts and run `safets` directly inside those scripts:
+
 ```bash
 safets doctor
 safets doctor --include-tests

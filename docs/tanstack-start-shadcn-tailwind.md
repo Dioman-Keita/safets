@@ -304,6 +304,14 @@ Add scripts to `package.json`:
 }
 ```
 
+You can also run the installed binary directly without adding scripts:
+
+```bash
+npx safets doctor
+pnpm exec safets doctor
+bunx safets doctor
+```
+
 Run SafeTS locally:
 
 ```bash
@@ -313,7 +321,7 @@ npm run safets
 With pnpm:
 
 ```bash
-pnpm safets
+pnpm run safets
 ```
 
 With Bun:
