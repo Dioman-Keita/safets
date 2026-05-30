@@ -49,6 +49,12 @@ export function isSubChainDuplicate(
   if (!ts.isPropertyAccessExpression(parent)) {
     return false;
   }
+  if (parent.expression !== node) {
+    return false;
+  }
+  if (ts.isCallExpression(parent.parent) && parent.parent.expression === parent) {
+    return false;
+  }
   try {
     return isNullable(checker.getTypeAtLocation(parent.expression));
   } catch {

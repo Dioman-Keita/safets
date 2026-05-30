@@ -31,6 +31,7 @@ const expectedPositiveFindings = [
   ["unsafe-process-env-non-null-fallback.ts", "Unsafe process.env access"],
   ["unsafe-process-env-coalesced-non-null.ts", "Unsafe process.env access"],
   ["unsafe-env-right-fallback.ts", "Unsafe process.env access"],
+  ["unsafe-process-env-method-access.ts", "Unsafe property access"],
   ["non-null-assertion-on-nullable.ts", "Non-null assertion on nullable"],
   ["unsafe-access-after-await.ts", "Unsafe access after await"],
   ["unsafe-conditional-guard-after-await.ts", "Unsafe access after await"],
@@ -61,6 +62,7 @@ const safeFiles = [
   "safe-process-env-parenthesized-default.ts",
   "safe-process-env-chained-default.ts",
   "safe-process-env-or-default.ts",
+  "safe-process-env-optional-method.ts",
   "safe-process-env-non-null-default.ts",
   "safe-process-env-coalesced-literal-non-null.ts",
   "safe-non-null-assertion.ts",
@@ -156,6 +158,19 @@ assert(
 assert(
   !siblingFallbackReports.some((crash) => crash.expr === "process.env.API_KEY"),
   "Expected safe env branch not to inherit sibling non-null assertion risk",
+);
+
+const envMethodReports = withoutTests.filter(
+  (crash) => fileName(crash.file) === "unsafe-process-env-method-access.ts",
+);
+assert(
+  envMethodReports.some(
+    (crash) =>
+      crash.pattern === "Unsafe property access" &&
+      crash.expr === "process.env.PORT.toString" &&
+      crash.type.includes("undefined"),
+  ),
+  "Expected method access on optional process.env value to be reported",
 );
 
 const shadowedClosureReports = withoutTests.filter(

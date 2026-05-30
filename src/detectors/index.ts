@@ -358,10 +358,23 @@ export function detectUnsafeEnvAccess(
     }
   }
 
+  function isOptionalChainReceiver(node: ts.Node): boolean {
+    const parent = node.parent;
+    return (
+      ((ts.isPropertyAccessExpression(parent) || ts.isElementAccessExpression(parent)) &&
+        parent.expression === node &&
+        parent.questionDotToken !== undefined) ||
+      (ts.isCallExpression(parent) &&
+        parent.expression === node &&
+        parent.questionDotToken !== undefined)
+    );
+  }
+
   function visit(node: ts.Node) {
     if (
       isEnvAccess(node) &&
       !isSafelyDefaulted(node) &&
+      !isOptionalChainReceiver(node) &&
       !ts.isNonNullExpression(node.parent)
     ) {
       try {
