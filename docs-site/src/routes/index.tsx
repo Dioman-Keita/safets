@@ -77,8 +77,8 @@ function HomePage() {
             className="mt-10"
           >
             <img
-              src="/docs-hero.jpg"
-              alt="A laptop with TypeScript code open, matching the SafeTS documentation theme"
+              src="https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=1800&q=85"
+              alt="Dark developer workstation with code on screen"
               className="h-auto w-full rounded-lg object-cover"
             />
           </motion.div>
