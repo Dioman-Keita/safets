@@ -359,14 +359,37 @@ export function detectUnsafeEnvAccess(
   }
 
   function isOptionalChainReceiver(node: ts.Node): boolean {
-    const parent = node.parent;
-    return (
+    let current = node;
+    while (ts.isParenthesizedExpression(current.parent)) {
+      current = current.parent;
+    }
+
+    const parent = current.parent;
+    const isOptionalReceiver =
       ((ts.isPropertyAccessExpression(parent) || ts.isElementAccessExpression(parent)) &&
-        parent.expression === node &&
+        parent.expression === current &&
         parent.questionDotToken !== undefined) ||
       (ts.isCallExpression(parent) &&
-        parent.expression === node &&
-        parent.questionDotToken !== undefined)
+        parent.expression === current &&
+        parent.questionDotToken !== undefined);
+
+    if (!isOptionalReceiver) {
+      return false;
+    }
+
+    let optionalAccess: ts.Node = parent;
+    let sawParentheses = false;
+    while (ts.isParenthesizedExpression(optionalAccess.parent)) {
+      sawParentheses = true;
+      optionalAccess = optionalAccess.parent;
+    }
+
+    return (
+      !sawParentheses ||
+      !(
+        ts.isCallExpression(optionalAccess.parent) &&
+        optionalAccess.parent.expression === optionalAccess
+      )
     );
   }
 
