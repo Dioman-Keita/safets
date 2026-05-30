@@ -3,12 +3,14 @@ import { computed, ref } from "vue";
 
 const props = withDefaults(
   defineProps<{
-    mode?: "install" | "doctor" | "fix" | "debt" | "baseline";
+    mode?: PackageManagerMode | string;
   }>(),
   {
     mode: "install",
   },
 );
+
+type PackageManagerMode = "install" | "doctor" | "fix" | "debt" | "baseline";
 
 type PackageManager = {
   name: string;
@@ -52,13 +54,21 @@ const managers: PackageManager[] = [
 
 const selected = ref(managers[0]);
 
-const commandLabels: Record<NonNullable<typeof props.mode>, string> = {
+const commandLabels: Record<PackageManagerMode, string> = {
   install: "Install + first scan",
   doctor: "Scan your project",
   fix: "Print suggestions",
   debt: "Show debt overview",
   baseline: "Create a CI baseline",
 };
+
+const isPackageManagerMode = (mode: string): mode is PackageManagerMode =>
+  Object.hasOwn(commandLabels, mode);
+
+const resolvedMode = computed<PackageManagerMode>(() => {
+  const mode = props.mode ?? "install";
+  return isPackageManagerMode(mode) ? mode : "install";
+});
 
 const code = computed(() => {
   const debtCommand =
@@ -68,7 +78,7 @@ const code = computed(() => {
         ? "pnpm exec safets debt"
         : "bunx safets debt";
 
-  return {
+  const commands: Record<PackageManagerMode, string[]> = {
     install: [
       "# Install",
       selected.value.install,
@@ -83,11 +93,13 @@ const code = computed(() => {
       selected.value.baseline,
       selected.value.ci,
     ],
-  }[props.mode].join("\n");
+  };
+
+  return commands[resolvedMode.value].join("\n");
 });
 
-const panelId = computed(() => `pm-tabs-panel-${props.mode}`);
-const selectedTabId = computed(() => `pm-tabs-tab-${props.mode}-${selected.value.name}`);
+const panelId = computed(() => `pm-tabs-panel-${resolvedMode.value}`);
+const selectedTabId = computed(() => `pm-tabs-tab-${resolvedMode.value}-${selected.value.name}`);
 </script>
 
 <template>
@@ -96,7 +108,7 @@ const selectedTabId = computed(() => `pm-tabs-tab-${props.mode}-${selected.value
       <button
         v-for="manager in managers"
         :key="manager.name"
-        :id="`pm-tabs-tab-${props.mode}-${manager.name}`"
+        :id="`pm-tabs-tab-${resolvedMode}-${manager.name}`"
         type="button"
         role="tab"
         :aria-selected="selected.name === manager.name"
@@ -115,7 +127,7 @@ const selectedTabId = computed(() => `pm-tabs-tab-${props.mode}-${selected.value
       role="tabpanel"
       :aria-labelledby="selectedTabId"
     >
-      <div class="pm-tabs__label">{{ commandLabels[props.mode] }}</div>
+      <div class="pm-tabs__label">{{ commandLabels[resolvedMode] }}</div>
       <pre><code>{{ code }}</code></pre>
     </div>
 
