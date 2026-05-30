@@ -12,7 +12,7 @@ export default defineConfig({
   ],
 
   themeConfig: {
-    logo: "/safets/logo.svg",
+    logo: "/logo.svg",
     siteTitle: "SafeTS",
 
     nav: [
