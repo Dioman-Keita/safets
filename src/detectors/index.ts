@@ -358,10 +358,46 @@ export function detectUnsafeEnvAccess(
     }
   }
 
+  function isOptionalChainReceiver(node: ts.Node): boolean {
+    let current = node;
+    while (ts.isParenthesizedExpression(current.parent)) {
+      current = current.parent;
+    }
+
+    const parent = current.parent;
+    const isOptionalReceiver =
+      ((ts.isPropertyAccessExpression(parent) || ts.isElementAccessExpression(parent)) &&
+        parent.expression === current &&
+        parent.questionDotToken !== undefined) ||
+      (ts.isCallExpression(parent) &&
+        parent.expression === current &&
+        parent.questionDotToken !== undefined);
+
+    if (!isOptionalReceiver) {
+      return false;
+    }
+
+    let optionalAccess: ts.Node = parent;
+    let sawParentheses = false;
+    while (ts.isParenthesizedExpression(optionalAccess.parent)) {
+      sawParentheses = true;
+      optionalAccess = optionalAccess.parent;
+    }
+
+    return (
+      !sawParentheses ||
+      !(
+        ts.isCallExpression(optionalAccess.parent) &&
+        optionalAccess.parent.expression === optionalAccess
+      )
+    );
+  }
+
   function visit(node: ts.Node) {
     if (
       isEnvAccess(node) &&
       !isSafelyDefaulted(node) &&
+      !isOptionalChainReceiver(node) &&
       !ts.isNonNullExpression(node.parent)
     ) {
       try {
