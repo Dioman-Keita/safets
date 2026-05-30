@@ -23,17 +23,17 @@ const packageManagers = [
   {
     name: "npm",
     install: "npm install --save-dev @safets-org/cli typescript",
-    run: "npm run safets",
+    run: "npx safets doctor",
   },
   {
     name: "pnpm",
     install: "pnpm add -D @safets-org/cli typescript",
-    run: "pnpm safets",
+    run: "pnpm exec safets doctor",
   },
   {
     name: "Bun",
     install: "bun add -D @safets-org/cli typescript",
-    run: "bun run safets",
+    run: "bunx safets doctor",
   },
 ];
 

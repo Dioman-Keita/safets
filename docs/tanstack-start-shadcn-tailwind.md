@@ -151,6 +151,18 @@ export function ThemeProvider({
 
   useEffect(() => {
     applyTheme(theme);
+
+    if (theme !== "system") return;
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleSystemThemeChange = () => {
+      applyTheme("system");
+    };
+
+    mediaQuery.addEventListener("change", handleSystemThemeChange);
+    return () => {
+      mediaQuery.removeEventListener("change", handleSystemThemeChange);
+    };
   }, [theme]);
 
   const setTheme = (nextTheme: Theme) => {
