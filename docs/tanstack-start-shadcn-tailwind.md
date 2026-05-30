@@ -394,9 +394,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: Dioman-Keita/safets@v1.0.1
+      - uses: Dioman-Keita/safets@v1.0.2
         with:
-          version: 1.0.1
+          version: 1.0.2
           fail-on-new: "true"
 ```
 
