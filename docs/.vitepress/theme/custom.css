@@ -1,0 +1,40 @@
+:root {
+  /* SafeTS brand - red as primary (danger/crash theme) */
+  --vp-c-brand-1: #ef4444;
+  --vp-c-brand-2: #dc2626;
+  --vp-c-brand-3: #b91c1c;
+  --vp-c-brand-soft: rgba(239, 68, 68, 0.12);
+
+  --vp-button-brand-bg: var(--vp-c-brand-1);
+  --vp-button-brand-hover-bg: var(--vp-c-brand-2);
+}
+
+/* Hero image sizing */
+.VPHero .image-src {
+  max-width: 280px;
+}
+
+/* Stat section on landing page */
+.home-stats {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .home-stats {
+    gap: 2rem;
+  }
+  .stat-number {
+    font-size: 2rem !important;
+  }
+}
+
+/* Code blocks - slightly tighter */
+.vp-doc div[class*="language-"] {
+  border-radius: 8px;
+}
+
+/* Badge style for HIGH/MEDIUM in patterns page */
+.vp-doc p code {
+  font-size: 0.85em;
+}

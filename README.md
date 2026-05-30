@@ -112,14 +112,15 @@ SafeTS v1.0.0 was tested in zero-setup mode against public TypeScript repositori
 | `vitest-dev/vitest` | 2038 | workspace-tsconfigs | ok | 35s | ok | false | 298 |
 | `withastro/astro` | 2094 | workspace-tsconfigs | ok | 24s | ok | false | 394 |
 
-No target fell back to AST-only mode. See [docs/real-world-validation.md](./docs/real-world-validation.md) for commits, pattern breakdowns, methodology, and follow-up notes.
+No target fell back to AST-only mode. The current public documentation lives at https://dioman-keita.github.io/safets/.
 
 ---
 
-## End-To-End Guides
+## Documentation
 
-- [SafeTS documentation website](./docs-site/README.md)
-- [TanStack Start, shadcn/ui, Tailwind CSS, and dark mode](./docs/tanstack-start-shadcn-tailwind.md)
+- [SafeTS docs](https://dioman-keita.github.io/safets/)
+- [Local VitePress source](./docs/index.md)
+- [Getting started](./docs/guide/getting-started.md)
 
 ---
 
@@ -167,7 +168,7 @@ SafeTS can run directly in GitHub Actions:
     fail-on-new: "true"
 ```
 
-See [docs/github-action.md](./docs/github-action.md) for the full workflow, inputs, and baseline setup.
+See the [Baseline & CI guide](./docs/guide/baseline.md) for workflow setup.
 
 ### Debt Tracking
 
@@ -190,11 +191,11 @@ MIT
 
 ## Releases
 
-SafeTS releases follow the documented workflow in [docs/release.md](./docs/release.md).
+SafeTS releases are published on [GitHub Releases](https://github.com/Dioman-Keita/safets/releases) and npm.
 
 ## Contributing
 
-Detector architecture and contribution expectations are documented in [docs/detectors.md](./docs/detectors.md).
+Detector behavior is documented in the [patterns guide](./docs/guide/patterns.md).
 
 ## AI Agent Skill
 

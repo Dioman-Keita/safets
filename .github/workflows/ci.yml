@@ -120,8 +120,8 @@ jobs:
           version: "latest"
           fail-on-new: "true"
 
-  docs-site:
-    name: Docs site
+  docs:
+    name: Docs
     runs-on: ubuntu-latest
 
     steps:
@@ -133,24 +133,12 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: docs-site/package-lock.json
+          cache-dependency-path: docs/package-lock.json
 
       - name: Install docs dependencies
-        working-directory: docs-site
+        working-directory: docs
         run: npm ci
 
-      - name: Typecheck docs site
-        working-directory: docs-site
-        run: npm run typecheck
-
-      - name: Build docs site
-        working-directory: docs-site
-        run: npm run build
-
-      - name: Verify Vercel output
-        working-directory: docs-site
-        shell: bash
-        run: |
-          test -f .vercel/output/config.json
-          test -f .vercel/output/functions/__server.func/index.mjs
-          grep -q '"/__server"' .vercel/output/config.json
+      - name: Build VitePress docs
+        working-directory: docs
+        run: npm run docs:build
