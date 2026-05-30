@@ -6,7 +6,7 @@ export function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        "rounded-lg bg-card p-6 transition-colors hover:bg-secondary/70",
+        "rounded-lg border border-border bg-card/80 p-6 backdrop-blur-lg transition-colors dark:bg-card/30",
         className,
       )}
       {...props}

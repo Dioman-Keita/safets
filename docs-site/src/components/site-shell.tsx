@@ -10,30 +10,30 @@ export function SiteShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <BackgroundTexture />
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur">
-        <div className="mx-auto flex h-[4.25rem] max-w-full items-center justify-between px-4 md:px-6">
+      <header className="sticky top-0 z-50 w-full backdrop-blur">
+        <div className="container flex h-14 max-w-screen-2xl items-center">
           <Link to="/" className="flex items-center gap-3">
             <LogoMark />
             <div>
-              <div className="text-sm font-semibold tracking-tight text-foreground">SafeTS</div>
-              <div className="hidden text-xs leading-none text-muted sm:block">
+              <div className="text-sm font-bold tracking-tight text-foreground">SafeTS</div>
+              <div className="hidden text-[11px] leading-none text-muted sm:block">
                 async correctness
               </div>
             </div>
           </Link>
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="ml-8 hidden items-center gap-4 text-sm lg:gap-6 md:flex">
             {mainNav.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
-                className="rounded-md px-2.5 py-1.5 text-sm font-semibold text-foreground/90 transition hover:bg-secondary hover:text-foreground"
-                activeProps={{ className: "text-foreground" }}
+                className="text-foreground/60 transition-colors hover:text-foreground/80"
+                activeProps={{ className: "text-foreground dark:text-[hsl(var(--primary-active))]" }}
               >
                 {item.label}
               </Link>
             ))}
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             <SearchBox compact />
             <Button asChild variant="ghost" size="icon" className="hidden sm:inline-flex">
               <a href="https://github.com/Dioman-Keita/safets" aria-label="GitHub">
@@ -69,7 +69,7 @@ export function LogoMark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "flex h-8 w-8 items-center justify-center rounded-lg bg-card font-mono text-sm font-bold text-foreground",
+        "flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card/80 font-mono text-sm font-bold text-foreground",
         className,
       )}
     >
@@ -82,7 +82,7 @@ export function SearchBox({ compact = false }: { compact?: boolean }) {
   return (
     <div
       className={cn(
-        "hidden items-center gap-2 rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground sm:flex",
+        "hidden items-center gap-2 rounded-lg border border-input bg-card/80 px-3 py-2 text-sm font-medium text-foreground shadow-sm sm:flex",
         compact ? "w-44 lg:w-64" : "w-full",
       )}
     >
@@ -104,7 +104,7 @@ function BackgroundTexture() {
 function Footer() {
   return (
     <footer className="border-t border-border px-6 py-8">
-      <div className="mx-auto flex max-w-full flex-col gap-6 text-sm text-muted md:flex-row md:items-center md:justify-between">
+      <div className="container flex max-w-screen-2xl flex-col gap-6 text-sm text-muted md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <LogoMark className="h-8 w-8" />
           <span>SafeTS. TypeScript safety tooling for async correctness.</span>

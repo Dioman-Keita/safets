@@ -11,51 +11,62 @@
   --color-subtle: hsl(var(--subtle));
   --color-ring: hsl(var(--ring));
   --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
   --color-secondary: hsl(var(--secondary));
+  --color-input: hsl(var(--input));
 }
 
 :root {
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  color-scheme: dark;
+  color-scheme: light;
   --hextra-max-page-width: 90rem;
   --hextra-max-content-width: 72rem;
-  --background: 220 15% 8%;
-  --foreground: 220 13% 93%;
-  --card: 220 14% 11%;
-  --border: 220 12% 22%;
-  --muted: 220 9% 70%;
-  --subtle: 220 8% 52%;
-  --ring: 210 70% 63%;
-  --primary: 210 70% 63%;
-  --secondary: 220 13% 16%;
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --border: 240 5.9% 90%;
+  --muted: 240 3.8% 46.1%;
+  --subtle: 240 3.8% 54%;
+  --ring: 240 5% 64.9%;
+  --primary: 240 5.9% 10%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --input: 240 5.9% 90%;
+  --primary-active: 161 100% 69%;
 }
 
 .dark {
   color-scheme: dark;
-  --background: 220 15% 8%;
-  --foreground: 220 13% 93%;
-  --card: 220 14% 11%;
-  --border: 220 12% 22%;
-  --muted: 220 9% 70%;
-  --subtle: 220 8% 52%;
-  --ring: 210 70% 63%;
-  --primary: 210 70% 63%;
-  --secondary: 220 13% 16%;
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --border: 240 3.7% 15.9%;
+  --muted: 240 5% 64.9%;
+  --subtle: 240 4% 50%;
+  --ring: 240 4.9% 83.9%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
+  --secondary: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --primary-active: 161 100% 69%;
 }
 
 .light {
   color-scheme: light;
-  --background: 220 20% 98%;
-  --foreground: 220 15% 12%;
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
   --card: 220 20% 96%;
-  --border: 220 14% 85%;
-  --muted: 220 10% 40%;
-  --subtle: 220 9% 58%;
-  --ring: 210 70% 55%;
-  --primary: 210 70% 55%;
-  --secondary: 220 18% 92%;
+  --border: 240 5.9% 90%;
+  --muted: 240 3.8% 46.1%;
+  --subtle: 240 3.8% 54%;
+  --ring: 240 5% 64.9%;
+  --primary: 240 5.9% 10%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --input: 240 5.9% 90%;
+  --primary-active: 161 100% 69%;
 }
 
 * {
@@ -107,12 +118,12 @@ body {
 }
 
 .docs-content a {
-  color: hsl(var(--primary));
+  color: hsl(var(--foreground));
   text-decoration: none;
 }
 
 .dark .docs-content a {
-  color: hsl(var(--primary));
+  color: hsl(var(--foreground));
 }
 
 .docs-content a:hover {
@@ -135,30 +146,39 @@ body {
   display: none;
 }
 
-.signal-marquee {
-  mask-image: linear-gradient(
-    to right,
-    transparent,
-    black 8%,
-    black 92%,
-    transparent
-  );
+.opendocs-vortex {
+  background:
+    radial-gradient(circle at 18% 18%, hsl(var(--primary-active) / 0.22), transparent 28rem),
+    radial-gradient(circle at 82% 4%, hsl(271 91% 65% / 0.15), transparent 30rem),
+    radial-gradient(circle at 52% 64%, hsl(199 89% 48% / 0.12), transparent 34rem);
 }
 
-.signal-marquee-track {
-  animation: signal-marquee 28s linear infinite;
+.opendocs-vortex::before,
+.opendocs-vortex::after {
+  position: absolute;
+  inset: -10%;
+  content: "";
+  background-image:
+    linear-gradient(115deg, transparent 0 46%, hsl(var(--foreground) / 0.08) 47%, transparent 49% 100%),
+    linear-gradient(72deg, transparent 0 48%, hsl(var(--primary-active) / 0.2) 49%, transparent 51% 100%);
+  background-size: 280px 220px, 360px 300px;
+  mask-image: radial-gradient(circle at center, black, transparent 72%);
+  opacity: 0.7;
+  animation: vortex-drift 22s linear infinite;
 }
 
-.signal-marquee:hover .signal-marquee-track {
-  animation-play-state: paused;
+.opendocs-vortex::after {
+  animation-direction: reverse;
+  animation-duration: 34s;
+  opacity: 0.42;
 }
 
-@keyframes signal-marquee {
+@keyframes vortex-drift {
   from {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0) rotate(0deg);
   }
   to {
-    transform: translateX(-50%);
+    transform: translate3d(-3%, 2%, 0) rotate(8deg);
   }
 }
 
@@ -177,10 +197,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .signal-marquee-track {
-    animation: none;
-  }
-
   *,
   *::before,
   *::after {
