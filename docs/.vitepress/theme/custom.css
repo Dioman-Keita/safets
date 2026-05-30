@@ -84,6 +84,16 @@
   background: var(--vp-code-block-bg);
 }
 
+.pm-tabs__label {
+  border-bottom: 1px solid color-mix(in srgb, var(--vp-c-divider), transparent 45%);
+  padding: 10px 18px 0;
+  color: var(--vp-c-text-2);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .pm-tabs__panel pre {
   margin: 0;
   overflow-x: auto;

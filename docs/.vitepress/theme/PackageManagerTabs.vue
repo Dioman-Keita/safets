@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+const props = withDefaults(
+  defineProps<{
+    mode?: "install" | "doctor" | "fix" | "debt" | "baseline";
+  }>(),
+  {
+    mode: "install",
+  },
+);
+
 type PackageManager = {
   name: string;
   install: string;
@@ -43,22 +52,42 @@ const managers: PackageManager[] = [
 
 const selected = ref(managers[0]);
 
-const code = computed(() =>
-  [
-    "# Install",
-    selected.value.install,
-    "",
-    "# Scan",
-    selected.value.run,
-    "",
-    "# Suggestions",
-    selected.value.fix,
-    "",
-    "# Baseline for CI",
-    selected.value.baseline,
-    selected.value.ci,
-  ].join("\n"),
-);
+const commandLabels: Record<NonNullable<typeof props.mode>, string> = {
+  install: "Install + first scan",
+  doctor: "Scan your project",
+  fix: "Print suggestions",
+  debt: "Show debt overview",
+  baseline: "Create a CI baseline",
+};
+
+const code = computed(() => {
+  const debtCommand =
+    selected.value.name === "npm"
+      ? "npx safets debt"
+      : selected.value.name === "pnpm"
+        ? "pnpm exec safets debt"
+        : "bunx safets debt";
+
+  return {
+    install: [
+      "# Install",
+      selected.value.install,
+      "",
+      "# First scan",
+      selected.value.run,
+    ],
+    doctor: [selected.value.run],
+    fix: [selected.value.fix],
+    debt: [debtCommand],
+    baseline: [
+      selected.value.baseline,
+      selected.value.ci,
+    ],
+  }[props.mode].join("\n");
+});
+
+const panelId = computed(() => `pm-tabs-panel-${props.mode}`);
+const selectedTabId = computed(() => `pm-tabs-tab-${props.mode}-${selected.value.name}`);
 </script>
 
 <template>
@@ -67,11 +96,11 @@ const code = computed(() =>
       <button
         v-for="manager in managers"
         :key="manager.name"
-        :id="`pm-tabs-tab-${manager.name}`"
+        :id="`pm-tabs-tab-${props.mode}-${manager.name}`"
         type="button"
         role="tab"
         :aria-selected="selected.name === manager.name"
-        aria-controls="pm-tabs-panel"
+        :aria-controls="panelId"
         class="pm-tabs__button"
         :class="{ 'pm-tabs__button--active': selected.name === manager.name }"
         @click="selected = manager"
@@ -81,11 +110,12 @@ const code = computed(() =>
     </div>
 
     <div
-      id="pm-tabs-panel"
+      :id="panelId"
       class="pm-tabs__panel"
       role="tabpanel"
-      :aria-labelledby="`pm-tabs-tab-${selected.name}`"
+      :aria-labelledby="selectedTabId"
     >
+      <div class="pm-tabs__label">{{ commandLabels[props.mode] }}</div>
       <pre><code>{{ code }}</code></pre>
     </div>
 
