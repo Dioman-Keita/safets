@@ -106,6 +106,13 @@ No target fell back to AST-only mode. See [docs/real-world-validation.md](./docs
 
 ---
 
+## End-To-End Guides
+
+- [SafeTS documentation website](./docs-site/README.md)
+- [TanStack Start, shadcn/ui, Tailwind CSS, and dark mode](./docs/tanstack-start-shadcn-tailwind.md)
+
+---
+
 ## The 9 Patterns
 
 | Pattern | Confidence | Example |
@@ -181,19 +188,19 @@ Detector architecture and contribution expectations are documented in [docs/dete
 
 ## AI Agent Skill
 
-SafeTS includes an installable Codex skill for AI agents:
+SafeTS includes an installable skill for agents that support the `skills` CLI:
 
 ```bash
 npx skills add Dioman-Keita/safets
 ```
 
-For a non-interactive Codex install:
+For a non-interactive install, pass the target agent explicitly. For Codex:
 
 ```bash
 npx skills add Dioman-Keita/safets --skill safets-agent -a codex -g -y
 ```
 
-After installation, restart the agent and invoke `$safets-agent` when an agent should run or interpret SafeTS on a TypeScript project.
+The skill is not coupled to Codex; Codex is only one supported target. After installation, restart the agent and invoke `$safets-agent` when an agent should run or interpret SafeTS on a TypeScript project.
 
 ## Roadmap
 

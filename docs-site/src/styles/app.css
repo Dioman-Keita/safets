@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  font-family:
+    "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+  color-scheme: light;
+  --background: 43 49% 94%;
+  --foreground: 222 47% 11%;
+  --ring: 195 85% 41%;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: 220 36% 5%;
+  --foreground: 210 40% 98%;
+  --ring: 187 92% 69%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+::selection {
+  background: rgba(20, 184, 166, 0.35);
+}
