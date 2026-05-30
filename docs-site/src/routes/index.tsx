@@ -85,12 +85,13 @@ function HomePage() {
         </section>
 
         <section className="border-y border-border bg-primary/10 py-7">
-          <div className="scrollbar-none overflow-x-auto">
-            <div className="mx-auto flex w-max min-w-full items-center justify-start gap-10 px-10 sm:justify-center">
-              {trustedSignals.map((signal) => (
+          <div className="signal-marquee overflow-hidden">
+            <div className="signal-marquee-track flex w-max items-center gap-10 px-10">
+              {[...trustedSignals, ...trustedSignals].map((signal, index) => (
                 <span
-                  key={signal}
+                  key={`${signal}-${index}`}
                   className="shrink-0 font-mono text-xs uppercase tracking-[0.28em] text-muted"
+                  aria-hidden={index >= trustedSignals.length}
                 >
                   {signal}
                 </span>

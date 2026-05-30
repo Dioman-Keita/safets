@@ -135,6 +135,33 @@ body {
   display: none;
 }
 
+.signal-marquee {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 8%,
+    black 92%,
+    transparent
+  );
+}
+
+.signal-marquee-track {
+  animation: signal-marquee 28s linear infinite;
+}
+
+.signal-marquee:hover .signal-marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes signal-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 @keyframes float {
   0%,
   100% {
@@ -150,6 +177,10 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .signal-marquee-track {
+    animation: none;
+  }
+
   *,
   *::before,
   *::after {
