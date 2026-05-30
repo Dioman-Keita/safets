@@ -6,7 +6,7 @@ hero:
   text: "Runtime crashes TypeScript can't detect."
   tagline: "Static analysis for the patterns strict mode misses. Powered by the TypeScript Compiler API."
   image:
-    src: /hero.svg
+    src: /logo.svg
     alt: SafeTS
   actions:
     - theme: brand

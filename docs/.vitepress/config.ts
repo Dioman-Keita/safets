@@ -4,6 +4,7 @@ export default defineConfig({
   title: "SafeTS",
   description: "Finds common runtime crashes TypeScript can't detect",
   base: "/safets/",
+  cleanUrls: true,
 
   head: [
     ["link", { rel: "icon", href: "/safets/favicon.svg" }],
