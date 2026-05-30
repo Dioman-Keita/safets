@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { CodeBlock } from "@/components/code-block";
 import { DocsLayout } from "@/components/docs-layout";
 import { SiteShell } from "@/components/site-shell";
-import { Card } from "@/components/ui/card";
 import { installTabs } from "@/lib/site-data";
 
 export const Route = createFileRoute("/install")({
@@ -27,18 +27,10 @@ function InstallPage() {
           <h2>Package managers</h2>
           <p>
             These commands run the local SafeTS binary after installation. Use
-            package scripts for daily workflows, but use `npx`/`exec`/`bunx`
-            when you want to invoke the binary directly.
+            package scripts for daily workflows, but use the direct runner when
+            you want to invoke the binary without adding a script.
           </p>
-          <div className="grid gap-4 lg:grid-cols-3">
-            {installTabs.map((tab) => (
-              <Card key={tab.manager}>
-                <h3>{tab.manager}</h3>
-                <CodeBlock language="bash" code={tab.install} />
-                <CodeBlock language="bash" code={tab.run} />
-              </Card>
-            ))}
-          </div>
+          <PackageManagerCommands />
         </section>
 
         <section id="scripts">
@@ -95,5 +87,40 @@ npx skills add Dioman-Keita/safets --skill safets-agent -a codex -g -y`}
         </section>
       </DocsLayout>
     </SiteShell>
+  );
+}
+
+function PackageManagerCommands() {
+  const [selectedManager, setSelectedManager] = useState<(typeof installTabs)[number]>(
+    installTabs[0],
+  );
+
+  return (
+    <div className="rounded-xl border border-border">
+      <div className="flex gap-1 border-b border-border p-2">
+        {installTabs.map((tab) => (
+          <button
+            key={tab.manager}
+            type="button"
+            onClick={() => setSelectedManager(tab)}
+            className={[
+              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              selectedManager.manager === tab.manager
+                ? "bg-neutral-100 text-foreground dark:bg-neutral-800"
+                : "text-muted hover:bg-neutral-100 hover:text-foreground dark:hover:bg-neutral-800/70",
+            ].join(" ")}
+          >
+            {tab.manager}
+          </button>
+        ))}
+      </div>
+      <CodeBlock
+        language="bash"
+        title={`${selectedManager.manager} install + direct run`}
+        className="rounded-none border-0"
+        code={`${selectedManager.install}
+${selectedManager.run}`}
+      />
+    </div>
   );
 }

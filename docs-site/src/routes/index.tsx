@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowRight, Github, Play, ShieldCheck, Terminal } from "lucide-react";
+import { ArrowRight, Github, Play } from "lucide-react";
 import { motion } from "motion/react";
 import { CodeBlock } from "@/components/code-block";
 import { DetectorCard } from "@/components/detector-card";
@@ -9,48 +9,47 @@ import { Card } from "@/components/ui/card";
 import {
   detectors,
   featureCards,
-  quickLinks,
-  trustedSignals,
 } from "@/lib/site-data";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
-const heroCode = `type Session = {
-  user?: { email?: string }
-}
-
-async function sendReceipt(session: Session) {
-  if (!session.user) return
-
-  await refreshBillingState()
-
-  // SafeTS: narrowing may be stale after await
-  return session.user.email.toLowerCase()
-}`;
-
 function HomePage() {
   return (
     <SiteShell>
       <main>
-        <section className="relative mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-28">
+        <section className="relative mx-auto flex max-w-[980px] flex-col items-center gap-2 overflow-hidden px-5 py-8 text-center md:py-12 md:pb-8 lg:py-24 lg:pb-20">
+          <div className="opendocs-vortex pointer-events-none fixed left-0 top-[-10rem] -z-10 h-full w-full overflow-hidden" />
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
+            className="flex w-full flex-col items-center gap-2"
           >
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-300/20 bg-indigo-400/10 px-4 py-2 font-mono text-xs uppercase tracking-[0.18em] text-indigo-200">
-              <ShieldCheck className="h-4 w-4" />
-              TypeScript safety tooling for async correctness
+            <Link
+              to="/docs"
+              className="group inline-flex items-center rounded-lg border border-input bg-card/80 px-3 py-1 text-sm font-medium backdrop-blur-lg dark:bg-card/30"
+            >
+              <span>SafeTS 1.0 is available</span>
+              <ArrowRight className="ml-1 h-4 w-4 transition group-hover:translate-x-1" />
+            </Link>
+
+            <div className="relative mt-4">
+              <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 text-8xl font-bold tracking-tighter text-foreground/[0.035] sm:text-9xl">
+                docs
+              </div>
+              <h1 className="mx-auto max-w-4xl text-balance text-3xl font-bold leading-tight tracking-tighter text-foreground md:text-6xl lg:leading-[1.1] dark:bg-linear-to-r dark:from-slate-50 dark:to-slate-200 dark:bg-clip-text dark:text-transparent">
+                TypeScript safety tooling for async correctness.
+              </h1>
             </div>
-            <h1 className="max-w-5xl text-balance text-5xl font-semibold leading-[0.92] tracking-[-0.065em] text-foreground sm:text-7xl lg:text-8xl">
-              Static analysis for the crashes hiding behind await.
-            </h1>
-            <p className="mt-7 max-w-2xl text-lg leading-8 text-muted sm:text-xl">
-              SafeTS scans TypeScript projects for runtime crash patterns that strict mode can still miss: stale async narrowing, unsafe env access, optional data, unguarded JSON, and brittle collection lookups.
+
+            <p className="mt-4 max-w-[750px] text-lg text-muted sm:text-xl">
+              Find runtime crash patterns TypeScript can miss, adopt with a
+              baseline, and keep pull requests focused on new safety regressions.
             </p>
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+
+            <div className="flex w-full flex-wrap items-center justify-center gap-3 py-4 md:pb-10">
               <Button asChild>
                 <Link to="/docs">
                   Get Started
@@ -64,66 +63,28 @@ function HomePage() {
                 </a>
               </Button>
             </div>
-            <div className="mt-10 grid gap-3 sm:grid-cols-3">
-              {quickLinks.map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className="group rounded-2xl border border-border bg-card/60 p-4 transition hover:-translate-y-0.5 hover:border-indigo-300/30 hover:bg-card"
-                >
-                  <link.icon className="mb-4 h-5 w-5 text-indigo-300" />
-                  <span className="text-sm font-medium text-muted group-hover:text-foreground">
-                    {link.label}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98, y: 18 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.65, delay: 0.12 }}
-            className="relative"
-          >
-            <div className="absolute -inset-8 rounded-[3rem] bg-indigo-500/10 blur-3xl" />
             <CodeBlock
-              title="async-correctness.ts"
-              code={heroCode}
-              className="relative animate-float"
+              title="terminal"
+              language="bash"
+              className="relative mt-2 w-full max-w-xl text-left"
+              code="npx safets doctor --fail-on-new"
             />
-            <Card className="absolute -bottom-8 left-6 hidden max-w-sm border-indigo-300/20 bg-[#0b1020]/90 p-4 shadow-2xl shadow-indigo-950/40 backdrop-blur md:block">
-              <div className="mb-2 flex items-center gap-2 font-mono text-xs text-indigo-200">
-                <Terminal className="h-4 w-4" />
-                safets doctor
-              </div>
-              <p className="text-sm text-muted">
-                Unsafe access after await detected at line 10. Snapshot the value or keep access optional.
-              </p>
-            </Card>
           </motion.div>
         </section>
 
-        <section className="border-y border-border/70 bg-card/30 px-4 py-10">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-8 gap-y-4">
-            {trustedSignals.map((signal) => (
-              <span key={signal} className="font-mono text-xs uppercase tracking-[0.2em] text-subtle">
-                {signal}
-              </span>
-            ))}
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6">
+        <section className="container mx-auto max-w-screen-2xl px-5 py-10 sm:py-14">
           <SectionHeader
             eyebrow="Why SafeTS?"
             title="A narrow, serious layer for runtime safety."
             body="SafeTS is intentionally not a formatter, not a broad linter, and not a replacement for tests. It is a focused crash detector for code paths TypeScript can type-check but production can still punish."
           />
-          <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid grid-cols-2 gap-4 lg:grid-cols-2 2xl:grid-cols-4">
             {featureCards.map((feature) => (
-              <Card key={feature.title} className="transition hover:-translate-y-1 hover:border-indigo-300/25">
-                <feature.icon className="mb-8 h-6 w-6 text-indigo-300" />
+              <Card key={feature.title} className="bg-card/80 dark:bg-card/30">
+                <div className="mb-4 flex w-11 items-center justify-center rounded-md bg-secondary px-3 py-2 text-center text-lg">
+                  <feature.icon className="h-5 w-5 text-muted" />
+                </div>
                 <h3 className="text-lg font-semibold">{feature.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-muted">{feature.body}</p>
               </Card>
@@ -131,7 +92,7 @@ function HomePage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6">
+        <section className="container mx-auto max-w-screen-2xl px-5 py-10 sm:py-14">
           <SectionHeader
             eyebrow="Detector model"
             title="Readable findings, realistic fixes."
@@ -152,15 +113,15 @@ function HomePage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6">
+        <section className="container mx-auto max-w-screen-2xl px-5 py-10 sm:py-14">
           <Card className="overflow-hidden p-0">
             <div className="grid gap-0 lg:grid-cols-[0.9fr_1.1fr]">
               <div className="p-8 sm:p-12">
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-300/20 bg-indigo-400/10 px-3 py-1 font-mono text-xs uppercase tracking-[0.18em] text-indigo-200">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-md border border-border px-3 py-1 text-sm text-muted">
                   <Play className="h-3.5 w-3.5" />
                   CI ready
                 </div>
-                <h2 className="text-4xl font-semibold tracking-[-0.04em]">
+                <h2 className="text-3xl font-bold tracking-[-0.035em]">
                   Adopt without stopping the team.
                 </h2>
                 <p className="mt-4 text-muted">
@@ -205,10 +166,10 @@ function SectionHeader({
 }) {
   return (
     <div className="max-w-3xl">
-      <p className="font-mono text-xs uppercase tracking-[0.24em] text-indigo-300">
+      <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted">
         {eyebrow}
       </p>
-      <h2 className="mt-3 text-balance text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">
+      <h2 className="mt-3 text-balance text-3xl font-bold tracking-[-0.035em] sm:text-4xl">
         {title}
       </h2>
       <p className="mt-5 text-lg leading-8 text-muted">{body}</p>

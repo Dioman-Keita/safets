@@ -17,64 +17,78 @@ export function DocsLayout({
   toc: Array<{ label: string; href: string }>;
 }) {
   return (
-    <main className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[17rem_minmax(0,1fr)_14rem]">
-      <aside className="hidden lg:block">
-        <div className="sticky top-24 space-y-5">
-          <SearchBox />
-          {docsGroups.map((group) => (
-            <details key={group.title} open className="group rounded-2xl border border-border bg-card/70 p-4">
-              <summary className="cursor-pointer select-none text-sm font-semibold text-foreground">
-                {group.title}
-              </summary>
-              <div className="mt-3 grid gap-1">
-                {group.items.map((item) => (
-                  <Link
-                    key={item.to}
-                    to={item.to.split("#")[0]}
-                    hash={item.to.includes("#") ? item.to.split("#")[1] : undefined}
-                    className="rounded-xl px-3 py-2 text-sm text-muted transition hover:bg-white/[0.05] hover:text-foreground"
-                    activeProps={{ className: "bg-indigo-400/10 text-indigo-200" }}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            </details>
-          ))}
-        </div>
-      </aside>
-
-      <article className="min-w-0">
-        <div className="mb-8 border-b border-border pb-8">
-          <div className="mb-4 flex items-center gap-2 font-mono text-xs uppercase tracking-[0.22em] text-indigo-300">
-            <Link to="/" className="text-muted hover:text-foreground">
-              SafeTS
-            </Link>
-            <span>/</span>
-            <span>{eyebrow}</span>
+    <main className="border-b">
+      <div className="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
+        <aside className="hidden lg:block">
+          <div className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto py-6 pr-6 lg:py-8">
+            <SearchBox />
+            <div className="mt-4 space-y-2">
+              {docsGroups.map((group) => (
+                <details key={group.title} open className="group">
+                  <summary className="cursor-pointer select-none rounded-md px-2 py-1 text-sm font-semibold text-foreground marker:text-subtle hover:bg-secondary">
+                    {group.title}
+                  </summary>
+                  <div className="mt-1 grid gap-1 pb-2">
+                    {group.items.map((item) => (
+                      <Link
+                        key={item.to}
+                        to={item.to.split("#")[0]}
+                        hash={item.to.includes("#") ? item.to.split("#")[1] : undefined}
+                        className="rounded-md px-2 py-1.5 text-sm text-muted transition hover:bg-secondary hover:text-foreground"
+                        activeProps={{
+                          className:
+                            "text-foreground dark:text-[hsl(var(--primary-active))] font-medium",
+                        }}
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                </details>
+              ))}
+            </div>
           </div>
-          <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-[-0.04em] text-foreground sm:text-6xl">
+        </aside>
+
+      <article className="relative min-w-0 py-6 lg:gap-10 lg:py-8 xl:grid xl:grid-cols-[1fr_220px]">
+        <div className="mx-auto w-full min-w-0 max-w-3xl">
+          <div className="mb-6 hidden items-center justify-between gap-4 lg:flex">
+            <div className="flex items-center gap-2 text-sm text-muted">
+              <Link to="/" className="text-muted hover:text-foreground">
+                SafeTS
+              </Link>
+              <span>/</span>
+              <span>{eyebrow}</span>
+            </div>
+          </div>
+          <h1 className="text-balance text-4xl font-bold tracking-tight text-foreground">
             {title}
           </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-muted">{description}</p>
+          <p className="mt-4 text-lg leading-8 text-muted">
+            {description}
+          </p>
+          <div className="mt-10 docs-content">{children}</div>
         </div>
-        <div className="docs-content">{children}</div>
-      </article>
-
-      <aside className="hidden xl:block">
-        <div className="sticky top-24">
-          <div className="mb-3 font-mono text-xs uppercase tracking-[0.22em] text-subtle">
-            On this page
+        <aside className="hidden text-sm xl:block">
+          <div className="sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto">
+            <div className="mb-2 font-medium text-foreground">
+              On this page
+            </div>
+            <nav className="grid gap-2">
+              {toc.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="text-muted transition hover:text-foreground"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
           </div>
-          <nav className="grid gap-2 border-l border-border pl-4">
-            {toc.map((item) => (
-              <a key={item.href} href={item.href} className="text-sm text-muted transition hover:text-foreground">
-                {item.label}
-              </a>
-            ))}
-          </nav>
-        </div>
-      </aside>
+        </aside>
+        </article>
+      </div>
     </main>
   );
 }

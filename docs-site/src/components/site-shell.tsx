@@ -10,30 +10,30 @@ export function SiteShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <BackgroundTexture />
-      <header className="sticky top-0 z-50 border-b border-border/70 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+      <header className="sticky top-0 z-50 w-full backdrop-blur">
+        <div className="container flex h-14 max-w-screen-2xl items-center">
           <Link to="/" className="flex items-center gap-3">
             <LogoMark />
             <div>
-              <div className="text-sm font-semibold tracking-tight">SafeTS</div>
-              <div className="hidden font-mono text-[10px] uppercase tracking-[0.18em] text-muted sm:block">
+              <div className="text-sm font-bold tracking-tight text-foreground">SafeTS</div>
+              <div className="hidden text-[11px] leading-none text-muted sm:block">
                 async correctness
               </div>
             </div>
           </Link>
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="ml-8 hidden items-center gap-4 text-sm lg:gap-6 md:flex">
             {mainNav.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
-                className="rounded-full px-3 py-2 text-sm text-muted transition hover:bg-white/[0.06] hover:text-foreground"
-                activeProps={{ className: "bg-white/[0.08] text-foreground" }}
+                className="text-foreground/60 transition-colors hover:text-foreground/80"
+                activeProps={{ className: "text-foreground dark:text-[hsl(var(--primary-active))]" }}
               >
                 {item.label}
               </Link>
             ))}
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             <SearchBox compact />
             <Button asChild variant="ghost" size="icon" className="hidden sm:inline-flex">
               <a href="https://github.com/Dioman-Keita/safets" aria-label="GitHub">
@@ -51,8 +51,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
             <Link
               key={item.to}
               to={item.to}
-              className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-muted"
-              activeProps={{ className: "border-indigo-400/40 text-foreground" }}
+              className="shrink-0 rounded-md px-2.5 py-1.5 text-sm text-muted hover:bg-secondary"
+              activeProps={{ className: "text-foreground" }}
             >
               {item.label}
             </Link>
@@ -69,12 +69,11 @@ export function LogoMark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "relative flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-300/20 bg-indigo-400/10 font-mono text-sm font-bold text-indigo-200 shadow-[0_0_30px_rgba(99,102,241,0.25)]",
+        "flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card/80 font-mono text-sm font-bold text-foreground",
         className,
       )}
     >
-      <span className="absolute inset-px rounded-[0.7rem] bg-gradient-to-br from-white/12 to-transparent" />
-      <span className="relative">S</span>
+      <span>S</span>
     </span>
   );
 }
@@ -83,13 +82,13 @@ export function SearchBox({ compact = false }: { compact?: boolean }) {
   return (
     <div
       className={cn(
-        "hidden items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-2 text-sm text-muted shadow-sm backdrop-blur sm:flex",
+        "hidden items-center gap-2 rounded-lg border border-input bg-card/80 px-3 py-2 text-sm font-medium text-foreground shadow-sm sm:flex",
         compact ? "w-44 lg:w-64" : "w-full",
       )}
     >
       <Search className="h-4 w-4" />
       <span className="truncate">Search docs...</span>
-      <kbd className="ml-auto rounded-md border border-border px-1.5 py-0.5 font-mono text-[10px] text-subtle">
+      <kbd className="ml-auto rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-subtle">
         /
       </kbd>
     </div>
@@ -98,18 +97,14 @@ export function SearchBox({ compact = false }: { compact?: boolean }) {
 
 function BackgroundTexture() {
   return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-background">
-      <div className="absolute left-1/2 top-[-22rem] h-[34rem] w-[44rem] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-3xl" />
-      <div className="absolute right-[-12rem] top-80 h-[30rem] w-[30rem] rounded-full bg-cyan-500/10 blur-3xl" />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
-    </div>
+    <div className="pointer-events-none fixed inset-0 -z-10 bg-background" />
   );
 }
 
 function Footer() {
   return (
-    <footer className="border-t border-border/70 px-4 py-10">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 text-sm text-muted md:flex-row md:items-center md:justify-between">
+    <footer className="border-t border-border px-6 py-8">
+      <div className="container flex max-w-screen-2xl flex-col gap-6 text-sm text-muted md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <LogoMark className="h-8 w-8" />
           <span>SafeTS. TypeScript safety tooling for async correctness.</span>
