@@ -162,7 +162,7 @@ The baseline stores scan options such as `includeTests`. If you run `doctor --fa
 SafeTS can run directly in GitHub Actions:
 
 ```yaml
-- uses: Dioman-Keita/safets@v1.0.1
+- uses: Dioman-Keita/safets@v1.0.2
   with:
     fail-on-new: "true"
 ```
