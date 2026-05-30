@@ -158,7 +158,7 @@ export const featureCards = [
 
 export const changelog = [
   {
-    version: "1.0.1",
+    version: "1.0.2",
     date: "May 2026",
     title: "Vercel-safe docs and action reliability",
     items: [
