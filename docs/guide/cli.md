@@ -6,9 +6,7 @@
 
 Scan your project and report potential runtime crashes.
 
-```bash
-npx safets doctor [options]
-```
+<PackageManagerTabs mode="doctor" />
 
 | Option | Description |
 |--------|-------------|
@@ -23,9 +21,7 @@ npx safets doctor [options]
 
 Print fix suggestions to stdout. **Never modifies source files.**
 
-```bash
-npx safets fix [--include-tests]
-```
+<PackageManagerTabs mode="fix" />
 
 ---
 
@@ -33,9 +29,7 @@ npx safets fix [--include-tests]
 
 Show crash counts grouped by pattern. Displays delta vs baseline if one exists.
 
-```bash
-npx safets debt [--include-tests]
-```
+<PackageManagerTabs mode="debt" />
 
 ---
 
@@ -43,9 +37,7 @@ npx safets debt [--include-tests]
 
 Snapshot the current state for use with `--fail-on-new`.
 
-```bash
-npx safets baseline [--include-tests]
-```
+<PackageManagerTabs mode="baseline" />
 
 Creates `.safets-baseline.json` at the project root. Commit this file.
 

@@ -16,7 +16,14 @@ const props = withDefaults(
   },
 );
 
-type PackageManagerMode = "install" | "doctor" | "fix" | "debt" | "baseline";
+type PackageManagerMode =
+  | "install"
+  | "doctor"
+  | "fix"
+  | "debt"
+  | "baseline"
+  | "ci"
+  | "ciWorkflow";
 
 type PackageManager = {
   name: string;
@@ -25,6 +32,7 @@ type PackageManager = {
   fix: string;
   baseline: string;
   ci: string;
+  ciInstall: string;
   note: string;
 };
 
@@ -36,6 +44,7 @@ const managers: PackageManager[] = [
     fix: "npx safets fix",
     baseline: "npx safets baseline",
     ci: "npx safets doctor --fail-on-new",
+    ciInstall: "npm ci",
     note: "Use npm scripts for daily usage, or npx when you want to invoke the local binary directly.",
   },
   {
@@ -45,6 +54,7 @@ const managers: PackageManager[] = [
     fix: "pnpm exec safets fix",
     baseline: "pnpm exec safets baseline",
     ci: "pnpm exec safets doctor --fail-on-new",
+    ciInstall: "pnpm install --frozen-lockfile",
     note: "pnpm exec runs the SafeTS binary installed in the project dev dependencies.",
   },
   {
@@ -54,6 +64,7 @@ const managers: PackageManager[] = [
     fix: "bunx safets fix",
     baseline: "bunx safets baseline",
     ci: "bunx safets doctor --fail-on-new",
+    ciInstall: "bun install --frozen-lockfile",
     note: "Bun users can install the package with bun add and invoke the binary with bunx.",
   },
 ];
@@ -74,6 +85,8 @@ const commandLabels: Record<PackageManagerMode, string> = {
   fix: "Print suggestions",
   debt: "Show debt overview",
   baseline: "Create a CI baseline",
+  ci: "Block new crashes in CI",
+  ciWorkflow: "GitHub Actions workflow",
 };
 
 const isPackageManagerMode = (mode: string): mode is PackageManagerMode =>
@@ -92,6 +105,29 @@ const code = computed(() => {
         ? "pnpm exec safets debt"
         : "bunx safets debt";
 
+  const ciSetupSteps =
+    selected.value.name === "bun"
+      ? [
+          "      - uses: oven-sh/setup-bun@v1",
+          "        with:",
+          "          bun-version: latest",
+        ]
+      : selected.value.name === "pnpm"
+        ? [
+            "      - uses: pnpm/action-setup@v4",
+            "        with:",
+            "          version: 9",
+            "      - uses: actions/setup-node@v4",
+            "        with:",
+            "          node-version: 20",
+            "          cache: pnpm",
+          ]
+        : [
+            "      - uses: actions/setup-node@v4",
+            "        with:",
+            "          node-version: 20",
+          ];
+
   const commands: Record<PackageManagerMode, string[]> = {
     install: [
       "# Install",
@@ -103,9 +139,22 @@ const code = computed(() => {
     doctor: [selected.value.run],
     fix: [selected.value.fix],
     debt: [debtCommand],
-    baseline: [
-      selected.value.baseline,
-      selected.value.ci,
+    baseline: [selected.value.baseline],
+    ci: [selected.value.ci],
+    ciWorkflow: [
+      "# .github/workflows/safets.yml",
+      "name: SafeTS",
+      "",
+      "on: [push, pull_request]",
+      "",
+      "jobs:",
+      "  safets:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - uses: actions/checkout@v4",
+      ...ciSetupSteps,
+      `      - run: ${selected.value.ciInstall}`,
+      `      - run: ${selected.value.ci}`,
     ],
   };
 
