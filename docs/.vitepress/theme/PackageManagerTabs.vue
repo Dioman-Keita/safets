@@ -33,7 +33,6 @@ type PackageManager = {
   baseline: string;
   ci: string;
   ciInstall: string;
-  note: string;
 };
 
 const managers: PackageManager[] = [
@@ -45,7 +44,6 @@ const managers: PackageManager[] = [
     baseline: "npx safets baseline",
     ci: "npx safets doctor --fail-on-new",
     ciInstall: "npm ci",
-    note: "Use npm scripts for daily usage, or npx when you want to invoke the local binary directly.",
   },
   {
     name: "pnpm",
@@ -55,7 +53,6 @@ const managers: PackageManager[] = [
     baseline: "pnpm exec safets baseline",
     ci: "pnpm exec safets doctor --fail-on-new",
     ciInstall: "pnpm install --frozen-lockfile",
-    note: "pnpm exec runs the SafeTS binary installed in the project dev dependencies.",
   },
   {
     name: "bun",
@@ -65,7 +62,6 @@ const managers: PackageManager[] = [
     baseline: "bunx safets baseline",
     ci: "bunx safets doctor --fail-on-new",
     ciInstall: "bun install --frozen-lockfile",
-    note: "Bun users can install the package with bun add and invoke the binary with bunx.",
   },
 ];
 
@@ -79,18 +75,18 @@ const selectManager = (manager: PackageManager) => {
   sharedPackageManagerName.value = manager.name;
 };
 
-const commandLabels: Record<PackageManagerMode, string> = {
-  install: "Install + first scan",
-  doctor: "Scan your project",
-  fix: "Print suggestions",
-  debt: "Show debt overview",
-  baseline: "Create a CI baseline",
-  ci: "Block new crashes in CI",
-  ciWorkflow: "GitHub Actions workflow",
-};
+const knownModes = new Set<PackageManagerMode>([
+  "install",
+  "doctor",
+  "fix",
+  "debt",
+  "baseline",
+  "ci",
+  "ciWorkflow",
+]);
 
 const isPackageManagerMode = (mode: string): mode is PackageManagerMode =>
-  Object.hasOwn(commandLabels, mode);
+  knownModes.has(mode as PackageManagerMode);
 
 const resolvedMode = computed<PackageManagerMode>(() => {
   const mode = props.mode ?? "install";
@@ -163,6 +159,10 @@ const code = computed(() => {
 
 const panelId = computed(() => `pm-tabs-panel-${resolvedMode.value}`);
 const selectedTabId = computed(() => `pm-tabs-tab-${resolvedMode.value}-${selected.value.name}`);
+
+const copyCode = async () => {
+  await navigator.clipboard.writeText(code.value);
+};
 </script>
 
 <template>
@@ -190,10 +190,8 @@ const selectedTabId = computed(() => `pm-tabs-tab-${resolvedMode.value}-${select
       role="tabpanel"
       :aria-labelledby="selectedTabId"
     >
-      <div class="pm-tabs__label">{{ commandLabels[resolvedMode] }}</div>
+      <button type="button" class="pm-tabs__copy" @click="copyCode">Copy</button>
       <pre><code>{{ code }}</code></pre>
     </div>
-
-    <p class="pm-tabs__note">{{ selected.note }}</p>
   </div>
 </template>
