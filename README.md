@@ -2,7 +2,7 @@
 
 [![Build](https://github.com/Dioman-Keita/safets/actions/workflows/ci.yml/badge.svg)](https://github.com/Dioman-Keita/safets/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@safets-org/cli?color=cb3837&label=npm)](https://www.npmjs.com/package/@safets-org/cli)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Dioman-Keita/safets/blob/main/LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)](https://www.typescriptlang.org/)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-222.svg)](https://dioman-keita.github.io/safets/)
 
