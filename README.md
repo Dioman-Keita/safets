@@ -1,12 +1,6 @@
 # SafeTS
 
-<p align="center">
-  <a href="https://github.com/Dioman-Keita/safets/actions/workflows/ci.yml"><img alt="Build" src="https://github.com/Dioman-Keita/safets/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://www.npmjs.com/package/@safets-org/cli"><img alt="npm" src="https://img.shields.io/npm/v/@safets-org/cli?color=cb3837&label=npm"></a>
-  <a href="https://github.com/Dioman-Keita/safets/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <a href="https://www.typescriptlang.org/"><img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.x-3178c6.svg"></a>
-  <a href="https://dioman-keita.github.io/safets/"><img alt="Docs" src="https://img.shields.io/badge/docs-GitHub%20Pages-222.svg"></a>
-</p>
+[![SafeTS project status](https://img.shields.io/badge/SafeTS-CI%20%7C%20npm%20%7C%20MIT%20%7C%20TypeScript%20%7C%20docs-222)](https://dioman-keita.github.io/safets/)
 
 **Finds common runtime crashes TypeScript can't detect.**
 
