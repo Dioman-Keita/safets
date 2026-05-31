@@ -1,5 +1,11 @@
 # SafeTS
 
+[![Build](https://github.com/Dioman-Keita/safets/actions/workflows/ci.yml/badge.svg)](https://github.com/Dioman-Keita/safets/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@safets-org/cli?color=cb3837&label=npm)](https://www.npmjs.com/package/@safets-org/cli)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)](https://www.typescriptlang.org/)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-222.svg)](https://dioman-keita.github.io/safets/)
+
 **Finds common runtime crashes TypeScript can't detect.**
 
 TypeScript catches type errors at compile time, but some crash patterns slip through even with `strict: true`. SafeTS uses the TypeScript Compiler API to detect them before they hit production.
