@@ -1,5 +1,22 @@
+<script lang="ts">
+import { ref } from "vue";
+
+const sharedPackageManagerName = ref("npm");
+</script>
+
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
+
+const props = withDefaults(
+  defineProps<{
+    mode?: PackageManagerMode | string;
+  }>(),
+  {
+    mode: "install",
+  },
+);
+
+type PackageManagerMode = "install" | "doctor" | "fix" | "debt" | "baseline";
 
 type PackageManager = {
   name: string;
@@ -41,24 +58,62 @@ const managers: PackageManager[] = [
   },
 ];
 
-const selected = ref(managers[0]);
-
-const code = computed(() =>
-  [
-    "# Install",
-    selected.value.install,
-    "",
-    "# Scan",
-    selected.value.run,
-    "",
-    "# Suggestions",
-    selected.value.fix,
-    "",
-    "# Baseline for CI",
-    selected.value.baseline,
-    selected.value.ci,
-  ].join("\n"),
+const selected = computed(
+  () =>
+    managers.find((manager) => manager.name === sharedPackageManagerName.value) ??
+    managers[0],
 );
+
+const selectManager = (manager: PackageManager) => {
+  sharedPackageManagerName.value = manager.name;
+};
+
+const commandLabels: Record<PackageManagerMode, string> = {
+  install: "Install + first scan",
+  doctor: "Scan your project",
+  fix: "Print suggestions",
+  debt: "Show debt overview",
+  baseline: "Create a CI baseline",
+};
+
+const isPackageManagerMode = (mode: string): mode is PackageManagerMode =>
+  Object.hasOwn(commandLabels, mode);
+
+const resolvedMode = computed<PackageManagerMode>(() => {
+  const mode = props.mode ?? "install";
+  return isPackageManagerMode(mode) ? mode : "install";
+});
+
+const code = computed(() => {
+  const debtCommand =
+    selected.value.name === "npm"
+      ? "npx safets debt"
+      : selected.value.name === "pnpm"
+        ? "pnpm exec safets debt"
+        : "bunx safets debt";
+
+  const commands: Record<PackageManagerMode, string[]> = {
+    install: [
+      "# Install",
+      selected.value.install,
+      "",
+      "# First scan",
+      selected.value.run,
+    ],
+    doctor: [selected.value.run],
+    fix: [selected.value.fix],
+    debt: [debtCommand],
+    baseline: [
+      selected.value.baseline,
+      selected.value.ci,
+    ],
+  };
+
+  return commands[resolvedMode.value].join("\n");
+});
+
+const panelId = computed(() => `pm-tabs-panel-${resolvedMode.value}`);
+const selectedTabId = computed(() => `pm-tabs-tab-${resolvedMode.value}-${selected.value.name}`);
 </script>
 
 <template>
@@ -67,25 +122,26 @@ const code = computed(() =>
       <button
         v-for="manager in managers"
         :key="manager.name"
-        :id="`pm-tabs-tab-${manager.name}`"
+        :id="`pm-tabs-tab-${resolvedMode}-${manager.name}`"
         type="button"
         role="tab"
         :aria-selected="selected.name === manager.name"
-        aria-controls="pm-tabs-panel"
+        :aria-controls="panelId"
         class="pm-tabs__button"
         :class="{ 'pm-tabs__button--active': selected.name === manager.name }"
-        @click="selected = manager"
+        @click="selectManager(manager)"
       >
         {{ manager.name }}
       </button>
     </div>
 
     <div
-      id="pm-tabs-panel"
+      :id="panelId"
       class="pm-tabs__panel"
       role="tabpanel"
-      :aria-labelledby="`pm-tabs-tab-${selected.name}`"
+      :aria-labelledby="selectedTabId"
     >
+      <div class="pm-tabs__label">{{ commandLabels[resolvedMode] }}</div>
       <pre><code>{{ code }}</code></pre>
     </div>
 

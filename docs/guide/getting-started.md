@@ -4,7 +4,7 @@
 
 SafeTS works with npm, pnpm, and Bun projects. Install the scoped package as a dev dependency, then run the `safets` binary with your package manager.
 
-<PackageManagerTabs />
+<PackageManagerTabs mode="install" />
 
 If TypeScript is already installed in your project, you can omit `typescript` from the install command.
 
@@ -12,9 +12,7 @@ If TypeScript is already installed in your project, you can omit `typescript` fr
 
 Run `doctor` to scan your project:
 
-```bash
-npx safets doctor
-```
+<PackageManagerTabs mode="doctor" />
 
 SafeTS will find your `tsconfig.json`, build a type-checked program, and report potential runtime crashes:
 
@@ -45,17 +43,13 @@ SafeTS Runtime Safety Report
 
 ## Fix suggestions
 
-```bash
-npx safets fix
-```
+<PackageManagerTabs mode="fix" />
 
 SafeTS is **read-only**. It never touches your source files. Fix suggestions are printed to stdout for you to apply manually.
 
 ## Debt overview
 
-```bash
-npx safets debt
-```
+<PackageManagerTabs mode="debt" />
 
 Groups findings by category:
 
@@ -66,6 +60,12 @@ Unsafe property access           8
 --------------------------------------------
 Total                           54
 ```
+
+## Baseline for CI
+
+Use a baseline when you want CI to block only new findings instead of all existing debt.
+
+<PackageManagerTabs mode="baseline" />
 
 ## Next steps
 
