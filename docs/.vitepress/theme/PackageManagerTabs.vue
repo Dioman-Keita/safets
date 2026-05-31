@@ -1,5 +1,11 @@
+<script lang="ts">
+import { ref } from "vue";
+
+const sharedPackageManagerName = ref("npm");
+</script>
+
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 
 const props = withDefaults(
   defineProps<{
@@ -52,7 +58,15 @@ const managers: PackageManager[] = [
   },
 ];
 
-const selected = ref(managers[0]);
+const selected = computed(
+  () =>
+    managers.find((manager) => manager.name === sharedPackageManagerName.value) ??
+    managers[0],
+);
+
+const selectManager = (manager: PackageManager) => {
+  sharedPackageManagerName.value = manager.name;
+};
 
 const commandLabels: Record<PackageManagerMode, string> = {
   install: "Install + first scan",
@@ -115,7 +129,7 @@ const selectedTabId = computed(() => `pm-tabs-tab-${resolvedMode.value}-${select
         :aria-controls="panelId"
         class="pm-tabs__button"
         :class="{ 'pm-tabs__button--active': selected.name === manager.name }"
-        @click="selected = manager"
+        @click="selectManager(manager)"
       >
         {{ manager.name }}
       </button>
