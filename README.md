@@ -1,10 +1,6 @@
 # SafeTS
 
-[![Build](https://github.com/Dioman-Keita/safets/actions/workflows/ci.yml/badge.svg)](https://github.com/Dioman-Keita/safets/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@safets-org/cli?color=cb3837&label=npm)](https://www.npmjs.com/package/@safets-org/cli)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Dioman-Keita/safets/blob/main/LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)](https://www.typescriptlang.org/)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-222.svg)](https://dioman-keita.github.io/safets/)
+[![Build](https://github.com/Dioman-Keita/safets/actions/workflows/ci.yml/badge.svg)](https://github.com/Dioman-Keita/safets/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@safets-org/cli?color=cb3837&label=npm)](https://www.npmjs.com/package/@safets-org/cli) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Dioman-Keita/safets/blob/main/LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)](https://www.typescriptlang.org/) [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-222.svg)](https://dioman-keita.github.io/safets/)
 
 **Finds common runtime crashes TypeScript can't detect.**
 
@@ -68,6 +64,48 @@ Common flags:
 safets --help
 safets --version
 ```
+
+### GitHub Action
+
+The Marketplace "Use latest version" button shows GitHub's minimal action snippet. For a real CI setup, use a complete workflow:
+
+```yaml
+name: SafeTS
+
+on: [push, pull_request]
+
+jobs:
+  safets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: Dioman-Keita/safets@v1.0.2
+        with:
+          command: doctor
+```
+
+To block only new crashes after committing `.safets-baseline.json`:
+
+```yaml
+- uses: Dioman-Keita/safets@v1.0.2
+  with:
+    command: doctor
+    fail-on-new: "true"
+```
+
+Action inputs:
+
+| Input | Default | Description |
+| --- | --- | --- |
+| `command` | `doctor` | SafeTS command to run: `doctor`, `fix`, `debt`, or `baseline`. |
+| `version` | `latest` | npm version of `@safets-org/cli` to install. |
+| `working-directory` | `.` | Directory where SafeTS should run. |
+| `fail-on-new` | `false` | Fail the workflow only for crashes not present in the baseline. |
+| `include-tests` | `false` | Include test files in the analysis. |
+| `json` | `false` | Print machine-readable JSON output. |
 
 ### JSON Output
 
@@ -164,17 +202,7 @@ safets doctor --fail-on-new
 
 The baseline stores scan options such as `includeTests`. If you run `doctor --fail-on-new` with different options than the saved baseline, SafeTS will refuse the comparison and ask you to regenerate the baseline.
 
-### GitHub Action
-
-SafeTS can run directly in GitHub Actions:
-
-```yaml
-- uses: Dioman-Keita/safets@v1.0.2
-  with:
-    fail-on-new: "true"
-```
-
-See the [Baseline & CI guide](./docs/guide/baseline.md) for workflow setup.
+See the [GitHub Action](#github-action) section above or the [Baseline & CI guide](./docs/guide/baseline.md) for workflow setup.
 
 ### Debt Tracking
 
