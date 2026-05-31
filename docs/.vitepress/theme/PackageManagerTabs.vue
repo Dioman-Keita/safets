@@ -5,7 +5,7 @@ const sharedPackageManagerName = ref("npm");
 </script>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 
 const props = withDefaults(
   defineProps<{
@@ -70,6 +70,8 @@ const selected = computed(
     managers.find((manager) => manager.name === sharedPackageManagerName.value) ??
     managers[0],
 );
+
+const copied = ref(false);
 
 const selectManager = (manager: PackageManager) => {
   sharedPackageManagerName.value = manager.name;
@@ -161,7 +163,15 @@ const panelId = computed(() => `pm-tabs-panel-${resolvedMode.value}`);
 const selectedTabId = computed(() => `pm-tabs-tab-${resolvedMode.value}-${selected.value.name}`);
 
 const copyCode = async () => {
-  await navigator.clipboard.writeText(code.value);
+  if (!globalThis.navigator?.clipboard) {
+    return;
+  }
+
+  await globalThis.navigator.clipboard.writeText(code.value);
+  copied.value = true;
+  window.setTimeout(() => {
+    copied.value = false;
+  }, 1500);
 };
 </script>
 
@@ -190,7 +200,9 @@ const copyCode = async () => {
       role="tabpanel"
       :aria-labelledby="selectedTabId"
     >
-      <button type="button" class="pm-tabs__copy" @click="copyCode">Copy</button>
+      <button type="button" class="pm-tabs__copy" @click="copyCode">
+        {{ copied ? "Copied!" : "Copy" }}
+      </button>
       <pre><code>{{ code }}</code></pre>
     </div>
   </div>
