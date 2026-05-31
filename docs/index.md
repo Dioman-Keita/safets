@@ -95,7 +95,6 @@ Choose your package manager once. The command panels stay in sync across the doc
   gap: 3rem;
   padding: 3rem 0;
   border-top: 1px solid var(--vp-c-divider);
-  border-bottom: 1px solid var(--vp-c-divider);
   margin: 2rem 0;
 }
 
