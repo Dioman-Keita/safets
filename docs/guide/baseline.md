@@ -50,11 +50,16 @@ Step 3 - block only new crashes in CI:
 When a baseline exists, `safets debt` shows the delta per category:
 
 ```text
-Unprotected JSON.parse          28  (2 new)
-Non-null assertion on nullable  236  (same)
-Unsafe process.env access        5  (1 fixed)
---------------------------------------------
-Total                           297  (+1 since baseline)
+(test files excluded - use --include-tests to include them)
+
+SafeTS Debt Report
+------------------------------------------------------------
+  Unsafe process.env access              19  (4 fixed)
+  Non-null assertion on nullable          3  (same)
+  Unsafe access after await              11  (same)
+  Unsafe property access                  1  (1 new)
+------------------------------------------------------------
+  Total                                  34  (-3 since baseline)
 ```
 
 ## Options mismatch warning
