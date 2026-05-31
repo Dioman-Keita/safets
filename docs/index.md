@@ -77,25 +77,16 @@ TypeScript's type checker is excellent — but it deliberately allows some patte
 
 ## Install
 
-```bash
-npm install --save-dev @safets-org/cli typescript
-```
+<PackageManagerTabs mode="install" />
 
 ## Quick start
 
-```bash
-# Scan your project
-npx safets doctor
+Choose your package manager once. The command panels stay in sync across the docs.
 
-# Show fix suggestions
-npx safets fix
-
-# Save a baseline for CI
-npx safets baseline
-
-# Block new crashes in CI
-npx safets doctor --fail-on-new
-```
+<PackageManagerTabs mode="doctor" />
+<PackageManagerTabs mode="fix" />
+<PackageManagerTabs mode="baseline" />
+<PackageManagerTabs mode="ci" />
 
 <style>
 .home-stats {
