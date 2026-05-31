@@ -2,9 +2,9 @@
 
 SafeTS is a static analysis CLI for TypeScript that detects runtime crash patterns the TypeScript compiler deliberately allows — even with `strict: true`.
 
-SafeTS started from a real production incident in Gemini CLI: `Cannot read properties of undefined`. The project already used TypeScript, tests, and mature CI, but the bug still slipped through.
+SafeTS started from a real production incident in [Gemini CLI](https://github.com/google-gemini/gemini-cli): `Cannot read properties of undefined`. The project already used TypeScript, tests, and mature CI, but the bug still slipped through.
 
-That raised a simple question: how many similar crashes could be detected before production? SafeTS was born from that question.
+That raised a simple question: How many similar crashes could be detected before production? SafeTS was born from that question.
 
 ## The gap SafeTS fills
 
