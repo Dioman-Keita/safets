@@ -105,6 +105,29 @@ const code = computed(() => {
         ? "pnpm exec safets debt"
         : "bunx safets debt";
 
+  const ciSetupSteps =
+    selected.value.name === "bun"
+      ? [
+          "      - uses: oven-sh/setup-bun@v1",
+          "        with:",
+          "          bun-version: latest",
+        ]
+      : selected.value.name === "pnpm"
+        ? [
+            "      - uses: pnpm/action-setup@v4",
+            "        with:",
+            "          version: 9",
+            "      - uses: actions/setup-node@v4",
+            "        with:",
+            "          node-version: 20",
+            "          cache: pnpm",
+          ]
+        : [
+            "      - uses: actions/setup-node@v4",
+            "        with:",
+            "          node-version: 20",
+          ];
+
   const commands: Record<PackageManagerMode, string[]> = {
     install: [
       "# Install",
@@ -129,9 +152,7 @@ const code = computed(() => {
       "    runs-on: ubuntu-latest",
       "    steps:",
       "      - uses: actions/checkout@v4",
-      "      - uses: actions/setup-node@v4",
-      "        with:",
-      "          node-version: 20",
+      ...ciSetupSteps,
       `      - run: ${selected.value.ciInstall}`,
       `      - run: ${selected.value.ci}`,
     ],

@@ -54,12 +54,12 @@ When a baseline exists, `safets debt` shows the delta per category:
 
 SafeTS Debt Report
 ------------------------------------------------------------
-  Unsafe process.env access              19  (4 fixed)
+  Unsafe process.env access              19  (↓4 fixed)
   Non-null assertion on nullable          3  (same)
   Unsafe access after await              11  (same)
-  Unsafe property access                  1  (1 new)
+  Unsafe property access                  1  (↑1 new)
 ------------------------------------------------------------
-  Total                                  34  (-3 since baseline)
+  Total                                  34  (↓3 since baseline)
 ```
 
 ## Options mismatch warning
