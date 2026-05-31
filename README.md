@@ -81,7 +81,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
       - uses: Dioman-Keita/safets@v1.0.2
         with:
           command: doctor
@@ -202,17 +202,7 @@ safets doctor --fail-on-new
 
 The baseline stores scan options such as `includeTests`. If you run `doctor --fail-on-new` with different options than the saved baseline, SafeTS will refuse the comparison and ask you to regenerate the baseline.
 
-### GitHub Action
-
-SafeTS can run directly in GitHub Actions:
-
-```yaml
-- uses: Dioman-Keita/safets@v1.0.2
-  with:
-    fail-on-new: "true"
-```
-
-See the [Baseline & CI guide](./docs/guide/baseline.md) for workflow setup.
+See the [GitHub Action](#github-action) section above or the [Baseline & CI guide](./docs/guide/baseline.md) for workflow setup.
 
 ### Debt Tracking
 
