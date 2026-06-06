@@ -10,6 +10,12 @@ import { c } from "./utils/colors.ts";
 const COMMANDS = new Set(["doctor", "fix", "debt", "baseline"]);
 const FLAGS = new Set(["--help", "--version", "--fail-on-new", "--baseline", "--include-tests", "--json"]);
 
+type RunTimings = {
+  totalMs: number;
+  programMs: number;
+  detectorMs: number;
+};
+
 function getVersion(): string {
   const require = createRequire(import.meta.url);
   const packageJson = require("../package.json") as { version?: string };
@@ -22,6 +28,36 @@ function printBanner(version: string, includeTests: boolean) {
   if (!includeTests) {
     console.log(c.dim("  (test files excluded - use --include-tests to include them)\n"));
   }
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`;
+  }
+  return `${(ms / 1000).toFixed(2)}s`;
+}
+
+function printScanTips(command: string) {
+  const tips = [
+    "Tip: Use `safets baseline` once to track only new crashes in CI.",
+    "Tip: Re-check narrowed values after `await`; async boundaries can make guards stale.",
+    "Tip: `safets fix` is read-only and prints manual suggestions only.",
+  ];
+
+  console.log(c.dim(`  Running ${command} analysis...`));
+  for (const tip of tips) {
+    console.log(c.dim(`  ${tip}`));
+  }
+  console.log();
+}
+
+function printTiming(timings: RunTimings) {
+  console.log(
+    c.dim(
+      `  Completed in ${formatDuration(timings.totalMs)} ` +
+        `(program ${formatDuration(timings.programMs)}, detectors ${formatDuration(timings.detectorMs)})\n`,
+    ),
+  );
 }
 
 function printHelp(version: string) {
@@ -88,6 +124,7 @@ const jsonOutput = args.includes("--json");
 
 if (!jsonOutput) {
   printBanner(version, includeTests);
+  printScanTips(command);
 }
 
 if (command !== "doctor" && failOnNew) {
@@ -100,8 +137,17 @@ if (command !== "doctor" && withBase) {
   process.exit(1);
 }
 
+const startedAt = performance.now();
+const programStartedAt = performance.now();
 const programResult = loadProgramRobust(root, includeTests);
+const detectorStartedAt = performance.now();
 const crashes = analyze(programResult);
+const finishedAt = performance.now();
+const timings: RunTimings = {
+  totalMs: finishedAt - startedAt,
+  programMs: detectorStartedAt - programStartedAt,
+  detectorMs: finishedAt - detectorStartedAt,
+};
 const baseline = loadBaseline(root);
 const baselineMismatch = baseline
   ? checkBaselineOptionsMismatch(baseline, includeTests)
@@ -147,16 +193,19 @@ switch (command) {
   case "debt":
     printBaselineMismatchWarning(baselineMismatch);
     printDebt(crashes, baseline, baselineMismatch);
+    printTiming(timings);
     break;
   case "fix":
     printFix(crashes, root);
+    printTiming(timings);
     break;
   case "baseline":
     saveBaseline(crashes, root, programResult, version);
+    printTiming(timings);
     break;
   case "doctor":
-  default:
-    printDoctor(
+  default: {
+    const exitCode = printDoctor(
       crashes,
       root,
       failOnNew,
@@ -164,8 +213,13 @@ switch (command) {
       programResult,
       baselineMismatch,
     );
-    if (withBase) {
+    if (withBase && exitCode === 0) {
       saveBaseline(crashes, root, programResult, version);
     }
+    printTiming(timings);
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
     break;
+  }
 }

@@ -18,7 +18,7 @@ export function printDoctor(
   base: Baseline | null,
   programResult: ProgramResult,
   baselineMismatch: string | null,
-) {
+): number {
   const rel = (filePath: string) => path.relative(root, filePath);
   const comparableBase = baselineMismatch ? null : base;
 
@@ -26,7 +26,7 @@ export function printDoctor(
     console.log(c.yellow(`  ! Baseline mismatch: ${baselineMismatch}\n`));
     if (failOnNew) {
       console.log(c.red("x Refusing --fail-on-new against an incompatible baseline.\n"));
-      process.exit(1);
+      return 1;
     }
   }
 
@@ -45,7 +45,7 @@ export function printDoctor(
     if (programResult.fallback) {
       console.log(c.dim("  Note: fallback mode may miss type-dependent crashes.\n"));
     }
-    return;
+    return 0;
   }
 
   const newCrashes = comparableBase
@@ -111,8 +111,10 @@ export function printDoctor(
 
   if (failOnNew && newCrashes.length > 0) {
     console.log(c.red(`x ${newCrashes.length} new crash(es) - CI blocked.\n`));
-    process.exit(1);
+    return 1;
   }
+
+  return 0;
 }
 
 export function printDebt(
@@ -142,6 +144,21 @@ export function printDebt(
     ...currentCounts.keys(),
     ...baselineCounts.keys(),
   ]);
+
+  if (patterns.size === 0) {
+    console.log(c.green("  OK No technical debt detected."));
+    console.log(c.dim("  SafeTS did not find any supported runtime-crash patterns in this scan."));
+    if (baselineMismatch) {
+      console.log(c.dim("  Baseline comparison was skipped because scan options changed."));
+      console.log(c.dim("  Re-run 'safets baseline' with matching options to track debt deltas."));
+    } else if (!comparableBase) {
+      console.log(c.dim("  Run 'safets baseline' to start tracking future runtime-safety debt."));
+    } else {
+      console.log(c.dim("  Your current scan is clean and matches the baseline."));
+    }
+    console.log();
+    return;
+  }
 
   for (const pattern of patterns) {
     const currentCount = currentCounts.get(pattern) ?? 0;

@@ -18,6 +18,7 @@ for (const expected of [
   "version:",
   "working-directory:",
   "fail-on-new:",
+  'default: "true"',
   "include-tests:",
   "json:",
   "INPUT_COMMAND: ${{ inputs.command }}",
@@ -40,8 +41,12 @@ assert(
   "Expected action.yml not to splice version input directly into bash",
 );
 assert(
+  action.includes("[[ \"$INPUT_COMMAND\" == \"doctor\" && \"$INPUT_FAIL_ON_NEW\" == \"true\" ]]"),
+  "Expected action.yml to add fail-on-new only for the doctor command",
+);
+assert(
   action.includes("args+=(\"--fail-on-new\")"),
-  "Expected action.yml to wire fail-on-new input to the CLI flag",
+  "Expected action.yml to wire fail-on-new input to the CLI flag for doctor",
 );
 assert(
   action.includes("args+=(\"--include-tests\")"),
