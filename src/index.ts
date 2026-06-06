@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
 import { createRequire } from "module";
+import { Worker } from "node:worker_threads";
 import { analyze, loadProgramRobust } from "./analyze.ts";
 import { checkBaselineOptionsMismatch, isNew, loadBaseline, saveBaseline } from "./reporters/baseline.ts";
 import { printBaselineMismatchWarning, printDebt, printDoctor, printFix } from "./reporters/index.ts";
 import { printJsonReport } from "./reporters/json.ts";
 import { c } from "./utils/colors.ts";
+import type { CrashReport, ProgramResult } from "./utils/types.ts";
 
 const COMMANDS = new Set(["doctor", "fix", "debt", "baseline"]);
 const FLAGS = new Set(["--help", "--version", "--fail-on-new", "--baseline", "--include-tests", "--json"]);
@@ -14,6 +16,12 @@ type RunTimings = {
   totalMs: number;
   programMs: number;
   detectorMs: number;
+};
+
+type AnalysisResult = {
+  crashes: CrashReport[];
+  programResult: ProgramResult;
+  timings: RunTimings;
 };
 
 function getVersion(): string {
@@ -37,19 +45,13 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
-function printScanTips(command: string) {
-  const tips = [
-    "Tip: Use `safets baseline` once to track only new crashes in CI.",
-    "Tip: Re-check narrowed values after `await`; async boundaries can make guards stale.",
-    "Tip: `safets fix` is read-only and prints manual suggestions only.",
-  ];
-
-  console.log(c.dim(`  Running ${command} analysis...`));
-  for (const tip of tips) {
-    console.log(c.dim(`  ${tip}`));
-  }
-  console.log();
-}
+const SCAN_TIPS = [
+  "Use `safets baseline` once to track only new crashes in CI.",
+  "Re-check narrowed values after `await`; async boundaries can make guards stale.",
+  "`safets fix` is read-only and prints manual suggestions only.",
+  "Use `--include-tests` when you also want test fixtures scanned.",
+  "Validate `process.env` at startup to avoid late runtime crashes.",
+];
 
 function printTiming(timings: RunTimings) {
   console.log(
@@ -58,6 +60,85 @@ function printTiming(timings: RunTimings) {
         `(program ${formatDuration(timings.programMs)}, detectors ${formatDuration(timings.detectorMs)})\n`,
     ),
   );
+}
+
+function startProgress(command: string) {
+  const startedAt = performance.now();
+  let tick = 0;
+  const useInlineProgress = process.stdout.isTTY;
+
+  const render = () => {
+    const elapsed = formatDuration(performance.now() - startedAt);
+    const tip = SCAN_TIPS[tick % SCAN_TIPS.length] ?? SCAN_TIPS[0];
+    tick += 1;
+    const line = `  Analyzing ${command}... ${elapsed}  Tip: ${tip}`;
+
+    if (useInlineProgress) {
+      process.stdout.write(`\r${c.dim(line.padEnd(120))}`);
+    } else {
+      console.log(c.dim(line));
+    }
+  };
+
+  render();
+  const timer = setInterval(render, useInlineProgress ? 1000 : 5000);
+
+  return () => {
+    clearInterval(timer);
+    if (useInlineProgress) {
+      process.stdout.write("\r" + " ".repeat(120) + "\r");
+    } else {
+      console.log();
+    }
+  };
+}
+
+function runAnalysisSync(root: string, includeTests: boolean): AnalysisResult {
+  const startedAt = performance.now();
+  const programStartedAt = performance.now();
+  const programResult = loadProgramRobust(root, includeTests);
+  const detectorStartedAt = performance.now();
+  const crashes = analyze(programResult);
+  const finishedAt = performance.now();
+
+  return {
+    crashes,
+    programResult,
+    timings: {
+      totalMs: finishedAt - startedAt,
+      programMs: detectorStartedAt - programStartedAt,
+      detectorMs: finishedAt - detectorStartedAt,
+    },
+  };
+}
+
+function runAnalysisWithProgress(
+  root: string,
+  includeTests: boolean,
+  command: string,
+): Promise<AnalysisResult> {
+  const stopProgress = startProgress(command);
+
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL("./analysis-worker.js", import.meta.url), {
+      workerData: { root, includeTests },
+    });
+
+    worker.once("message", (result: AnalysisResult) => {
+      stopProgress();
+      resolve(result);
+    });
+    worker.once("error", (error) => {
+      stopProgress();
+      reject(error);
+    });
+    worker.once("exit", (code) => {
+      if (code !== 0) {
+        stopProgress();
+        reject(new Error(`Analysis worker exited with code ${code}`));
+      }
+    });
+  });
 }
 
 function printHelp(version: string) {
@@ -124,7 +205,6 @@ const jsonOutput = args.includes("--json");
 
 if (!jsonOutput) {
   printBanner(version, includeTests);
-  printScanTips(command);
 }
 
 if (command !== "doctor" && failOnNew) {
@@ -137,17 +217,9 @@ if (command !== "doctor" && withBase) {
   process.exit(1);
 }
 
-const startedAt = performance.now();
-const programStartedAt = performance.now();
-const programResult = loadProgramRobust(root, includeTests);
-const detectorStartedAt = performance.now();
-const crashes = analyze(programResult);
-const finishedAt = performance.now();
-const timings: RunTimings = {
-  totalMs: finishedAt - startedAt,
-  programMs: detectorStartedAt - programStartedAt,
-  detectorMs: finishedAt - detectorStartedAt,
-};
+const { crashes, programResult, timings } = jsonOutput
+  ? runAnalysisSync(root, includeTests)
+  : await runAnalysisWithProgress(root, includeTests, command);
 const baseline = loadBaseline(root);
 const baselineMismatch = baseline
   ? checkBaselineOptionsMismatch(baseline, includeTests)
