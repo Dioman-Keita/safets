@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createRequire } from "module";
-import { Worker } from "node:worker_threads";
+import { Worker, type WorkerOptions } from "node:worker_threads";
 import { analyze, loadProgramRobust } from "./analyze.ts";
 import { checkBaselineOptionsMismatch, isNew, loadBaseline, saveBaseline } from "./reporters/baseline.ts";
 import { printBaselineMismatchWarning, printDebt, printDoctor, printFix } from "./reporters/index.ts";
@@ -18,9 +18,18 @@ type RunTimings = {
   detectorMs: number;
 };
 
+type AnalysisProgramResult = Omit<ProgramResult, "program" | "programInputs"> & {
+  program: ProgramResult["program"];
+  programInputs?: ProgramResult["programInputs"];
+};
+
+type ModuleWorkerOptions = WorkerOptions & {
+  type: "module";
+};
+
 type AnalysisResult = {
   crashes: CrashReport[];
-  programResult: ProgramResult;
+  programResult: AnalysisProgramResult;
   timings: RunTimings;
 };
 
@@ -53,6 +62,13 @@ const SCAN_TIPS = [
   "Validate `process.env` at startup to avoid late runtime crashes.",
 ];
 
+function progressLine(text: string): string {
+  const columns = Math.max(20, (process.stdout.columns ?? 80) - 1);
+  const truncated =
+    text.length > columns ? `${text.slice(0, Math.max(0, columns - 3))}...` : text;
+  return truncated.padEnd(columns);
+}
+
 function printTiming(timings: RunTimings) {
   console.log(
     c.dim(
@@ -79,7 +95,7 @@ function startProgress(command: string) {
       if (renderedInline) {
         process.stdout.write("\x1b[2A");
       }
-      process.stdout.write(`${c.dim(timerLine.padEnd(120))}\n${c.dim(tipLine.padEnd(120))}\n`);
+      process.stdout.write(`${c.dim(progressLine(timerLine))}\n${c.dim(progressLine(tipLine))}\n`);
       renderedInline = true;
     } else {
       console.log(c.dim(timerLine));
@@ -94,8 +110,9 @@ function startProgress(command: string) {
     clearInterval(timer);
     if (useInlineProgress) {
       if (renderedInline) {
+        const blankLine = progressLine("");
         process.stdout.write("\x1b[2A");
-        process.stdout.write(`${" ".repeat(120)}\n${" ".repeat(120)}\n`);
+        process.stdout.write(`${blankLine}\n${blankLine}\n`);
         process.stdout.write("\x1b[2A");
       }
     } else {
@@ -128,25 +145,45 @@ function runAnalysisWithProgress(
   includeTests: boolean,
   command: string,
 ): Promise<AnalysisResult> {
+  const startedAt = performance.now();
   const stopProgress = startProgress(command);
 
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL("./analysis-worker.js", import.meta.url), {
+    const workerOptions: ModuleWorkerOptions = {
+      type: "module",
       workerData: { root, includeTests },
-    });
+    };
+    const worker = new Worker(new URL("./analysis-worker.js", import.meta.url), workerOptions);
+    let settled = false;
+
+    const finish = () => {
+      if (!settled) {
+        settled = true;
+        stopProgress();
+        return true;
+      }
+      return false;
+    };
 
     worker.once("message", (result: AnalysisResult) => {
-      stopProgress();
-      resolve(result);
+      if (finish()) {
+        resolve({
+          ...result,
+          timings: {
+            ...result.timings,
+            totalMs: performance.now() - startedAt,
+          },
+        });
+      }
     });
     worker.once("error", (error) => {
-      stopProgress();
-      reject(error);
+      if (finish()) {
+        reject(error);
+      }
     });
     worker.once("exit", (code) => {
-      if (code !== 0) {
-        stopProgress();
-        reject(new Error(`Analysis worker exited with code ${code}`));
+      if (finish()) {
+        reject(new Error(`Analysis worker exited unexpectedly with code ${code}`));
       }
     });
   });
@@ -228,9 +265,22 @@ if (command !== "doctor" && withBase) {
   process.exit(1);
 }
 
-const { crashes, programResult, timings } = jsonOutput
-  ? runAnalysisSync(root, includeTests)
-  : await runAnalysisWithProgress(root, includeTests, command);
+let analysisResult: AnalysisResult;
+try {
+  analysisResult = jsonOutput
+    ? runAnalysisSync(root, includeTests)
+    : await runAnalysisWithProgress(root, includeTests, command);
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (jsonOutput) {
+    console.log(JSON.stringify({ error: "Analysis failed", message }, null, 2));
+  } else {
+    console.error(c.red(`\n  x Analysis failed: ${message}\n`));
+  }
+  process.exit(1);
+}
+
+const { crashes, programResult, timings } = analysisResult;
 const baseline = loadBaseline(root);
 const baselineMismatch = baseline
   ? checkBaselineOptionsMismatch(baseline, includeTests)
