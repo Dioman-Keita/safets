@@ -138,6 +138,32 @@ function testFixNoSuggestionsMessage() {
   );
 }
 
+function testDebtNoFindingsMessage() {
+  const projectDir = createProject({
+    "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
+    "app.ts": "const user = { name: 'Ada' };\nconsole.log(user.name);\n",
+  });
+
+  const result = runCli(["debt"], projectDir);
+  const output = stripAnsi(`${result.stdout}${result.stderr}`);
+  assert(result.status === 0, "Expected debt to exit with code 0 when no debt exists", output);
+  assert(output.includes("OK No technical debt detected."), "Expected debt to explain empty debt", output);
+  assert(!output.includes("Total                                    0"), "Expected debt not to show a red zero total", output);
+}
+
+function testHumanOutputIncludesTiming() {
+  const projectDir = createProject({
+    "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
+    "app.ts": "const user = { name: 'Ada' };\nconsole.log(user.name);\n",
+  });
+
+  const result = runCli(["doctor"], projectDir);
+  const output = stripAnsi(`${result.stdout}${result.stderr}`);
+  assert(result.status === 0, "Expected doctor to exit with code 0", output);
+  assert(output.includes("Completed in "), "Expected doctor output to include total runtime", output);
+  assert(output.includes("detectors "), "Expected doctor output to include detector runtime", output);
+}
+
 function testDoesNotUseParentTsconfig() {
   const parentDir = createProject({
     "tsconfig.json": JSON.stringify({
@@ -277,6 +303,8 @@ try {
   testMismatchFailOnNew();
   testInvalidFlagCombination();
   testFixNoSuggestionsMessage();
+  testDebtNoFindingsMessage();
+  testHumanOutputIncludesTiming();
   testDoesNotUseParentTsconfig();
   testUsesNestedTsconfig();
   testSolutionStyleRootTsconfigUsesWorkspaceWithoutMisleadingWarning();

@@ -20,9 +20,9 @@ inputs:
     required: false
     default: .
   fail-on-new:
-    description: Block the workflow when doctor finds crashes not present in the baseline.
+    description: Block the workflow when doctor finds crashes not present in the baseline. Applies only to the doctor command.
     required: false
-    default: "false"
+    default: "true"
   include-tests:
     description: Include test files in the analysis.
     required: false
@@ -49,7 +49,7 @@ runs:
 
         args=("$INPUT_COMMAND")
 
-        if [[ "$INPUT_FAIL_ON_NEW" == "true" ]]; then
+        if [[ "$INPUT_COMMAND" == "doctor" && "$INPUT_FAIL_ON_NEW" == "true" ]]; then
           args+=("--fail-on-new")
         fi
 

@@ -103,7 +103,7 @@ Action inputs:
 | `command` | `doctor` | SafeTS command to run: `doctor`, `fix`, `debt`, or `baseline`. |
 | `version` | `latest` | npm version of `@safets-org/cli` to install. |
 | `working-directory` | `.` | Directory where SafeTS should run. |
-| `fail-on-new` | `false` | Fail the workflow only for crashes not present in the baseline. |
+| `fail-on-new` | `true` | Fail the workflow for new crashes when `command` is `doctor`. |
 | `include-tests` | `false` | Include test files in the analysis. |
 | `json` | `false` | Print machine-readable JSON output. |
 

@@ -1,14 +1,37 @@
 #!/usr/bin/env node
 
 import { createRequire } from "module";
+import { Worker, type WorkerOptions } from "node:worker_threads";
 import { analyze, loadProgramRobust } from "./analyze.ts";
 import { checkBaselineOptionsMismatch, isNew, loadBaseline, saveBaseline } from "./reporters/baseline.ts";
 import { printBaselineMismatchWarning, printDebt, printDoctor, printFix } from "./reporters/index.ts";
 import { printJsonReport } from "./reporters/json.ts";
 import { c } from "./utils/colors.ts";
+import type { CrashReport, ProgramResult } from "./utils/types.ts";
 
 const COMMANDS = new Set(["doctor", "fix", "debt", "baseline"]);
 const FLAGS = new Set(["--help", "--version", "--fail-on-new", "--baseline", "--include-tests", "--json"]);
+
+type RunTimings = {
+  totalMs: number;
+  programMs: number;
+  detectorMs: number;
+};
+
+type AnalysisProgramResult = Omit<ProgramResult, "program" | "programInputs"> & {
+  program: ProgramResult["program"];
+  programInputs?: ProgramResult["programInputs"];
+};
+
+type ModuleWorkerOptions = WorkerOptions & {
+  type: "module";
+};
+
+type AnalysisResult = {
+  crashes: CrashReport[];
+  programResult: AnalysisProgramResult;
+  timings: RunTimings;
+};
 
 function getVersion(): string {
   const require = createRequire(import.meta.url);
@@ -22,6 +45,148 @@ function printBanner(version: string, includeTests: boolean) {
   if (!includeTests) {
     console.log(c.dim("  (test files excluded - use --include-tests to include them)\n"));
   }
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`;
+  }
+  return `${(ms / 1000).toFixed(2)}s`;
+}
+
+const SCAN_TIPS = [
+  "Use `safets baseline` once to track only new crashes in CI.",
+  "Re-check narrowed values after `await`; async boundaries can make guards stale.",
+  "`safets fix` is read-only and prints manual suggestions only.",
+  "Use `--include-tests` when you also want test fixtures scanned.",
+  "Validate `process.env` at startup to avoid late runtime crashes.",
+];
+
+function progressLine(text: string): string {
+  const columns = Math.max(20, (process.stdout.columns ?? 80) - 1);
+  const truncated =
+    text.length > columns ? `${text.slice(0, Math.max(0, columns - 3))}...` : text;
+  return truncated.padEnd(columns);
+}
+
+function printTiming(timings: RunTimings) {
+  console.log(
+    c.dim(
+      `  Completed in ${formatDuration(timings.totalMs)} ` +
+        `(program ${formatDuration(timings.programMs)}, detectors ${formatDuration(timings.detectorMs)})\n`,
+    ),
+  );
+}
+
+function startProgress(command: string) {
+  const startedAt = performance.now();
+  let tick = 0;
+  const useInlineProgress = process.stdout.isTTY;
+  let renderedInline = false;
+
+  const render = () => {
+    const elapsed = formatDuration(performance.now() - startedAt);
+    const tip = SCAN_TIPS[tick % SCAN_TIPS.length] ?? SCAN_TIPS[0];
+    tick += 1;
+    const timerLine = `  Analyzing ${command}... ${elapsed}`;
+    const tipLine = `  Tip: ${tip}`;
+
+    if (useInlineProgress) {
+      if (renderedInline) {
+        process.stdout.write("\x1b[2A");
+      }
+      process.stdout.write(`${c.dim(progressLine(timerLine))}\n${c.dim(progressLine(tipLine))}\n`);
+      renderedInline = true;
+    } else {
+      console.log(c.dim(timerLine));
+      console.log(c.dim(tipLine));
+    }
+  };
+
+  render();
+  const timer = setInterval(render, useInlineProgress ? 1000 : 5000);
+
+  return () => {
+    clearInterval(timer);
+    if (useInlineProgress) {
+      if (renderedInline) {
+        const blankLine = progressLine("");
+        process.stdout.write("\x1b[2A");
+        process.stdout.write(`${blankLine}\n${blankLine}\n`);
+        process.stdout.write("\x1b[2A");
+      }
+    } else {
+      console.log();
+    }
+  };
+}
+
+function runAnalysisSync(root: string, includeTests: boolean): AnalysisResult {
+  const startedAt = performance.now();
+  const programStartedAt = performance.now();
+  const programResult = loadProgramRobust(root, includeTests);
+  const detectorStartedAt = performance.now();
+  const crashes = analyze(programResult);
+  const finishedAt = performance.now();
+
+  return {
+    crashes,
+    programResult,
+    timings: {
+      totalMs: finishedAt - startedAt,
+      programMs: detectorStartedAt - programStartedAt,
+      detectorMs: finishedAt - detectorStartedAt,
+    },
+  };
+}
+
+function runAnalysisWithProgress(
+  root: string,
+  includeTests: boolean,
+  command: string,
+): Promise<AnalysisResult> {
+  const startedAt = performance.now();
+  const stopProgress = startProgress(command);
+
+  return new Promise((resolve, reject) => {
+    const workerOptions: ModuleWorkerOptions = {
+      type: "module",
+      workerData: { root, includeTests },
+    };
+    const worker = new Worker(new URL("./analysis-worker.js", import.meta.url), workerOptions);
+    let settled = false;
+
+    const finish = () => {
+      if (!settled) {
+        settled = true;
+        stopProgress();
+        return true;
+      }
+      return false;
+    };
+
+    worker.once("message", (result: AnalysisResult) => {
+      if (finish()) {
+        resolve({
+          ...result,
+          timings: {
+            ...result.timings,
+            totalMs: performance.now() - startedAt,
+          },
+        });
+      }
+    });
+    worker.once("error", (error) => {
+      if (finish()) {
+        reject(error);
+      }
+    });
+    worker.once("exit", (code) => {
+      if (finish()) {
+        reject(new Error(`Analysis worker exited unexpectedly with code ${code}`));
+      }
+    });
+  });
 }
 
 function printHelp(version: string) {
@@ -100,8 +265,22 @@ if (command !== "doctor" && withBase) {
   process.exit(1);
 }
 
-const programResult = loadProgramRobust(root, includeTests);
-const crashes = analyze(programResult);
+let analysisResult: AnalysisResult;
+try {
+  analysisResult = jsonOutput
+    ? runAnalysisSync(root, includeTests)
+    : await runAnalysisWithProgress(root, includeTests, command);
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (jsonOutput) {
+    console.log(JSON.stringify({ error: "Analysis failed", message }, null, 2));
+  } else {
+    console.error(c.red(`\n  x Analysis failed: ${message}\n`));
+  }
+  process.exit(1);
+}
+
+const { crashes, programResult, timings } = analysisResult;
 const baseline = loadBaseline(root);
 const baselineMismatch = baseline
   ? checkBaselineOptionsMismatch(baseline, includeTests)
@@ -147,16 +326,19 @@ switch (command) {
   case "debt":
     printBaselineMismatchWarning(baselineMismatch);
     printDebt(crashes, baseline, baselineMismatch);
+    printTiming(timings);
     break;
   case "fix":
     printFix(crashes, root);
+    printTiming(timings);
     break;
   case "baseline":
     saveBaseline(crashes, root, programResult, version);
+    printTiming(timings);
     break;
   case "doctor":
-  default:
-    printDoctor(
+  default: {
+    const exitCode = printDoctor(
       crashes,
       root,
       failOnNew,
@@ -164,8 +346,13 @@ switch (command) {
       programResult,
       baselineMismatch,
     );
-    if (withBase) {
+    if (withBase && exitCode === 0) {
       saveBaseline(crashes, root, programResult, version);
     }
+    printTiming(timings);
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
     break;
+  }
 }
