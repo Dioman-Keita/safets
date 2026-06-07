@@ -66,17 +66,24 @@ function startProgress(command: string) {
   const startedAt = performance.now();
   let tick = 0;
   const useInlineProgress = process.stdout.isTTY;
+  let renderedInline = false;
 
   const render = () => {
     const elapsed = formatDuration(performance.now() - startedAt);
     const tip = SCAN_TIPS[tick % SCAN_TIPS.length] ?? SCAN_TIPS[0];
     tick += 1;
-    const line = `  Analyzing ${command}... ${elapsed}  Tip: ${tip}`;
+    const timerLine = `  Analyzing ${command}... ${elapsed}`;
+    const tipLine = `  Tip: ${tip}`;
 
     if (useInlineProgress) {
-      process.stdout.write(`\r${c.dim(line.padEnd(120))}`);
+      if (renderedInline) {
+        process.stdout.write("\x1b[2A");
+      }
+      process.stdout.write(`${c.dim(timerLine.padEnd(120))}\n${c.dim(tipLine.padEnd(120))}\n`);
+      renderedInline = true;
     } else {
-      console.log(c.dim(line));
+      console.log(c.dim(timerLine));
+      console.log(c.dim(tipLine));
     }
   };
 
@@ -86,7 +93,11 @@ function startProgress(command: string) {
   return () => {
     clearInterval(timer);
     if (useInlineProgress) {
-      process.stdout.write("\r" + " ".repeat(120) + "\r");
+      if (renderedInline) {
+        process.stdout.write("\x1b[2A");
+        process.stdout.write(`${" ".repeat(120)}\n${" ".repeat(120)}\n`);
+        process.stdout.write("\x1b[2A");
+      }
     } else {
       console.log();
     }
