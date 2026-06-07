@@ -111,9 +111,9 @@ The baseline stores scan options such as `includeTests`. If those options differ
 Recommended pinned workflow:
 
 ```yaml
-- uses: Dioman-Keita/safets@v1.0.2
+- uses: Dioman-Keita/safets@v1.0.3
   with:
-    version: 1.0.2
+    version: 1.0.3
     fail-on-new: "true"
 ```
 

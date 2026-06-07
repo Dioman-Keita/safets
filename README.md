@@ -82,7 +82,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - uses: Dioman-Keita/safets@v1.0.2
+      - uses: Dioman-Keita/safets@v1.0.3
         with:
           command: doctor
 ```
@@ -90,7 +90,7 @@ jobs:
 To block only new crashes after committing `.safets-baseline.json`:
 
 ```yaml
-- uses: Dioman-Keita/safets@v1.0.2
+- uses: Dioman-Keita/safets@v1.0.3
   with:
     command: doctor
     fail-on-new: "true"
