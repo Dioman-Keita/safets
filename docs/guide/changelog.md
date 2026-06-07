@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.3
+
+- Fix: GitHub Action blocks new `doctor` findings by default
+- Fix: `fail-on-new` is only passed to the `doctor` command
+- UX: real-time scan timer and rotating tips for human CLI output
+- UX: cleaner `debt` output when no technical debt is detected
+- Robustness: worker-based progress handling now fails cleanly instead of hanging
+
 ## v1.0.2
 
 - Fix: `process.env.PORT` detection improved
