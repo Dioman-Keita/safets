@@ -72,6 +72,18 @@ export function detectFallbackPatterns(sf: ts.SourceFile): CrashReport[] {
   return results;
 }
 
+// `process.env.X.method()` is already reported by detectUnsafeEnvAccess on the
+// `process.env.X` access itself. Skip it here so the same location is not
+// flagged twice by two detectors.
+function isProcessEnvAccess(node: ts.PropertyAccessExpression): boolean {
+  return (
+    ts.isPropertyAccessExpression(node.expression) &&
+    ts.isPropertyAccessExpression(node.expression.expression) &&
+    node.expression.expression.expression.getText() === "process" &&
+    node.expression.expression.name.getText() === "env"
+  );
+}
+
 export function detectUnsafePropertyAccess(
   sf: ts.SourceFile,
   checker: ts.TypeChecker,
@@ -80,7 +92,12 @@ export function detectUnsafePropertyAccess(
 
   function visit(node: ts.Node) {
     if (ts.isPropertyAccessExpression(node)) {
-      if (isOptionalAccess(node) || hasNonNullAssertion(node) || isSubChainDuplicate(node, checker)) {
+      if (
+        isOptionalAccess(node) ||
+        hasNonNullAssertion(node) ||
+        isSubChainDuplicate(node, checker) ||
+        isProcessEnvAccess(node)
+      ) {
         ts.forEachChild(node, visit);
         return;
       }
@@ -96,7 +113,9 @@ export function detectUnsafePropertyAccess(
             line,
             col,
             expr: node.getText(),
-            rootExpr: getChainRoot(node.expression).getText(),
+            // Use the directly-nullable expression so the guard suggestion is
+            // `if (!a.b.c) return;`, not the chain root `if (!a) return;`.
+            rootExpr: node.expression.getText(),
             type: checker.typeToString(objectType),
             pattern: "Unsafe property access",
             confidence: "HIGH",

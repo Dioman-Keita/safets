@@ -21,6 +21,7 @@ function fileName(filePath) {
 
 const expectedPositiveFindings = [
   ["unsafe-property-access.ts", "Unsafe property access"],
+  ["unsafe-nested-property-chain.ts", "Unsafe property access"],
   ["unsafe-conditional-return-only-guard.ts", "Unsafe property access"],
   ["unsafe-destructuring.ts", "Unsafe destructuring"],
   ["unsafe-array-index-access.ts", "Unsafe array index access"],
@@ -31,7 +32,7 @@ const expectedPositiveFindings = [
   ["unsafe-process-env-non-null-fallback.ts", "Unsafe process.env access"],
   ["unsafe-process-env-coalesced-non-null.ts", "Unsafe process.env access"],
   ["unsafe-env-right-fallback.ts", "Unsafe process.env access"],
-  ["unsafe-process-env-method-access.ts", "Unsafe property access"],
+  ["unsafe-process-env-method-access.ts", "Unsafe process.env access"],
   ["unsafe-process-env-extracted-optional-method-call.ts", "Unsafe process.env access"],
   ["non-null-assertion-on-nullable.ts", "Non-null assertion on nullable"],
   ["unsafe-access-after-await.ts", "Unsafe access after await"],
@@ -168,11 +169,32 @@ const envMethodReports = withoutTests.filter(
 assert(
   envMethodReports.some(
     (crash) =>
-      crash.pattern === "Unsafe property access" &&
-      crash.expr === "process.env.PORT.toString" &&
+      crash.pattern === "Unsafe process.env access" &&
+      crash.expr === "process.env.PORT" &&
       crash.type.includes("undefined"),
   ),
-  "Expected method access on optional process.env value to be reported",
+  "Expected method access on optional process.env value to be reported as env access",
+);
+assert(
+  envMethodReports.every((crash) => crash.pattern !== "Unsafe property access"),
+  "Expected process.env method access not to be double-reported as property access",
+);
+assert(
+  envMethodReports.length === 1,
+  `Expected process.env method access to report once, got ${envMethodReports.length}`,
+);
+
+const nestedChainReports = withoutTests.filter(
+  (crash) => fileName(crash.file) === "unsafe-nested-property-chain.ts",
+);
+assert(
+  nestedChainReports.length === 1 &&
+    nestedChainReports[0].pattern === "Unsafe property access" &&
+    nestedChainReports[0].expr === "outer.middle.value" &&
+    nestedChainReports[0].rootExpr === "outer.middle",
+  `Expected nested property chain guard to target the nullable expression, got ${JSON.stringify(
+    nestedChainReports.map((crash) => ({ expr: crash.expr, rootExpr: crash.rootExpr })),
+  )}`,
 );
 
 const shadowedClosureReports = withoutTests.filter(
