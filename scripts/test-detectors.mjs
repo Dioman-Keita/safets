@@ -22,6 +22,7 @@ function fileName(filePath) {
 const expectedPositiveFindings = [
   ["unsafe-property-access.ts", "Unsafe property access"],
   ["unsafe-nested-property-chain.ts", "Unsafe property access"],
+  ["unsafe-deep-nullable-chain.ts", "Unsafe property access"],
   ["unsafe-conditional-return-only-guard.ts", "Unsafe property access"],
   ["unsafe-destructuring.ts", "Unsafe destructuring"],
   ["unsafe-array-index-access.ts", "Unsafe array index access"],
@@ -194,6 +195,22 @@ assert(
     nestedChainReports[0].rootExpr === "outer.middle",
   `Expected nested property chain guard to target the nullable expression, got ${JSON.stringify(
     nestedChainReports.map((crash) => ({ expr: crash.expr, rootExpr: crash.rootExpr })),
+  )}`,
+);
+
+// When several links are nullable, the guard must target the first nullable
+// link from the root so it is safe to evaluate (outer.middle would throw if
+// outer is undefined).
+const deepChainReports = withoutTests.filter(
+  (crash) => fileName(crash.file) === "unsafe-deep-nullable-chain.ts",
+);
+assert(
+  deepChainReports.length === 1 &&
+    deepChainReports[0].pattern === "Unsafe property access" &&
+    deepChainReports[0].expr === "outer.middle.value" &&
+    deepChainReports[0].rootExpr === "outer",
+  `Expected deep nullable chain guard to target the first nullable link, got ${JSON.stringify(
+    deepChainReports.map((crash) => ({ expr: crash.expr, rootExpr: crash.rootExpr })),
   )}`,
 );
 
