@@ -72,6 +72,49 @@ export function detectFallbackPatterns(sf: ts.SourceFile): CrashReport[] {
   return results;
 }
 
+// `process.env.X.method()` is already reported by detectUnsafeEnvAccess on the
+// `process.env.X` access itself. Skip it here so the same location is not
+// flagged twice by two detectors.
+function isProcessEnvAccess(node: ts.PropertyAccessExpression): boolean {
+  return (
+    ts.isPropertyAccessExpression(node.expression) &&
+    ts.isPropertyAccessExpression(node.expression.expression) &&
+    node.expression.expression.expression.getText() === "process" &&
+    node.expression.expression.name.getText() === "env"
+  );
+}
+
+// Walk a property/element access chain from its root toward `expr` and return
+// the first link that is nullable. The guard suggestion (`if (!X) return;`) is
+// built from this, so it must be safe to evaluate: for `outer.middle.inner`
+// where `outer` is also nullable, we must return `outer`, not the whole
+// `outer.middle.inner` (which would itself throw when `outer` is undefined).
+function getFirstNullableExpression(
+  expr: ts.Expression,
+  checker: ts.TypeChecker,
+): ts.Expression {
+  const chain: ts.Expression[] = [];
+  let current: ts.Expression = expr;
+  while (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) {
+    chain.push(current);
+    current = current.expression;
+  }
+  chain.push(current);
+  chain.reverse();
+
+  for (const link of chain) {
+    try {
+      if (isNullable(checker.getTypeAtLocation(link))) {
+        return link;
+      }
+    } catch {
+      // Ignore links where type resolution fails.
+    }
+  }
+
+  return expr;
+}
+
 export function detectUnsafePropertyAccess(
   sf: ts.SourceFile,
   checker: ts.TypeChecker,
@@ -80,7 +123,12 @@ export function detectUnsafePropertyAccess(
 
   function visit(node: ts.Node) {
     if (ts.isPropertyAccessExpression(node)) {
-      if (isOptionalAccess(node) || hasNonNullAssertion(node) || isSubChainDuplicate(node, checker)) {
+      if (
+        isOptionalAccess(node) ||
+        hasNonNullAssertion(node) ||
+        isSubChainDuplicate(node, checker) ||
+        isProcessEnvAccess(node)
+      ) {
         ts.forEachChild(node, visit);
         return;
       }
@@ -96,7 +144,9 @@ export function detectUnsafePropertyAccess(
             line,
             col,
             expr: node.getText(),
-            rootExpr: getChainRoot(node.expression).getText(),
+            // Target the first nullable link so the guard suggestion is both
+            // accurate and safe to evaluate (see getFirstNullableExpression).
+            rootExpr: getFirstNullableExpression(node.expression, checker).getText(),
             type: checker.typeToString(objectType),
             pattern: "Unsafe property access",
             confidence: "HIGH",
