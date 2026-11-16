@@ -104,6 +104,8 @@ git commit -m "chore: add SafeTS baseline"
 safets doctor --fail-on-new
 ```
 
+Baseline matching ignores line numbers (file + pattern + expression), so line shifts alone never create new findings; there is no need to regenerate the baseline after unrelated edits.
+
 The baseline stores scan options such as `includeTests`. If those options differ later, regenerate the baseline intentionally.
 
 ## GitHub Action

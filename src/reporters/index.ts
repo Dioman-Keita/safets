@@ -1,5 +1,5 @@
 import path from "path";
-import { isNew } from "./baseline.ts";
+import { findNewCrashes } from "./baseline.ts";
 import { c } from "../utils/colors.ts";
 import type { Baseline, CrashReport, PatternName, ProgramResult } from "../utils/types.ts";
 
@@ -48,12 +48,9 @@ export function printDoctor(
     return 0;
   }
 
-  const newCrashes = comparableBase
-    ? crashes.filter((crash) => isNew(crash, comparableBase))
-    : crashes;
-  const knownCrashes = comparableBase
-    ? crashes.filter((crash) => !isNew(crash, comparableBase))
-    : [];
+  const newSet = comparableBase ? findNewCrashes(crashes, comparableBase) : null;
+  const newCrashes = newSet ? crashes.filter((crash) => newSet.has(crash)) : crashes;
+  const knownCrashes = newSet ? crashes.filter((crash) => !newSet.has(crash)) : [];
   const fallbackCount = crashes.filter((crash) => crash.fallback).length;
 
   console.log(c.bold("SafeTS Runtime Safety Report"));
@@ -84,8 +81,8 @@ export function printDoctor(
   for (const [file, list] of grouped) {
     console.log(c.cyan(`  ${file}`));
     for (const crash of list) {
-      const badge = comparableBase
-        ? isNew(crash, comparableBase)
+      const badge = newSet
+        ? newSet.has(crash)
           ? c.red(" [NEW]   ")
           : c.dim(" [known] ")
         : "";

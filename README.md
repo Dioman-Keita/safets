@@ -200,6 +200,8 @@ safets doctor --fail-on-new
 
 `.safets-baseline.json` should be committed to version control so every teammate and CI job compares against the same snapshot.
 
+Known crashes are matched by file, pattern and expression, not by line number, so unrelated edits that shift lines do not produce false "new" crashes. A second occurrence of a known unsafe expression in the same file is still reported as new.
+
 The baseline stores scan options such as `includeTests`. If you run `doctor --fail-on-new` with different options than the saved baseline, SafeTS will refuse the comparison and ask you to regenerate the baseline.
 
 See the [GitHub Action](#github-action) section above or the [Baseline & CI guide](./docs/guide/baseline.md) for workflow setup.

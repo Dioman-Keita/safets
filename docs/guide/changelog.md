@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fix: `--fail-on-new` no longer reports known crashes as new when unrelated edits shift line numbers; baseline matching now uses file + pattern + expression, with lines only as a tiebreaker. Existing baselines keep working.
+
 ## v1.0.3
 
 - Fix: GitHub Action blocks new `doctor` findings by default
