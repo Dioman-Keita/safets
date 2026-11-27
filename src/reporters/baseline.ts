@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import ts from "typescript";
 import { c } from "../utils/colors.ts";
 import { toPortablePath, toProjectRelativePath } from "../utils/files.ts";
 import type { Baseline, BaselineCrash, CrashReport, ProgramResult } from "../utils/types.ts";
@@ -53,9 +54,66 @@ export function loadBaseline(root: string): Baseline | null {
   }
 }
 
-// Whitespace-insensitive so reformatting a multi-line expression keeps its identity.
+// After these tokens a `/` is a division operator; anywhere else it starts a regex.
+const TOKENS_BEFORE_DIVISION = new Set<ts.SyntaxKind>([
+  ts.SyntaxKind.Identifier,
+  ts.SyntaxKind.PrivateIdentifier,
+  ts.SyntaxKind.NumericLiteral,
+  ts.SyntaxKind.BigIntLiteral,
+  ts.SyntaxKind.StringLiteral,
+  ts.SyntaxKind.RegularExpressionLiteral,
+  ts.SyntaxKind.NoSubstitutionTemplateLiteral,
+  ts.SyntaxKind.TemplateTail,
+  ts.SyntaxKind.CloseParenToken,
+  ts.SyntaxKind.CloseBracketToken,
+  ts.SyntaxKind.CloseBraceToken,
+  ts.SyntaxKind.ExclamationToken,
+  ts.SyntaxKind.PlusPlusToken,
+  ts.SyntaxKind.MinusMinusToken,
+  ts.SyntaxKind.ThisKeyword,
+  ts.SyntaxKind.SuperKeyword,
+  ts.SyntaxKind.TrueKeyword,
+  ts.SyntaxKind.FalseKeyword,
+  ts.SyntaxKind.NullKeyword,
+]);
+
+/**
+ * Canonical form of a crash expression: the TypeScript tokens joined by a
+ * single space. Reformatting (line breaks, spacing between tokens, comments)
+ * keeps the same key, while each token's own text — including the contents of
+ * string, template and regex literals — stays significant.
+ */
 function normalizeExpr(expr: string): string {
-  return expr.replace(/\s+/g, "");
+  const scanner = ts.createScanner(ts.ScriptTarget.Latest, true, ts.LanguageVariant.Standard, expr);
+  const tokens: string[] = [];
+  // Tracks whether each open `{` belongs to a `${` template substitution.
+  const braces: boolean[] = [];
+  let previous: ts.SyntaxKind | undefined;
+
+  for (let kind = scanner.scan(); kind !== ts.SyntaxKind.EndOfFileToken; kind = scanner.scan()) {
+    if (kind === ts.SyntaxKind.CloseBraceToken && braces.at(-1) === true) {
+      braces.pop();
+      kind = scanner.reScanTemplateToken(false);
+    } else if (
+      (kind === ts.SyntaxKind.SlashToken || kind === ts.SyntaxKind.SlashEqualsToken) &&
+      (previous === undefined || !TOKENS_BEFORE_DIVISION.has(previous))
+    ) {
+      kind = scanner.reScanSlashToken();
+    }
+
+    if (kind === ts.SyntaxKind.TemplateHead || kind === ts.SyntaxKind.TemplateMiddle) {
+      braces.push(true);
+    } else if (kind === ts.SyntaxKind.OpenBraceToken) {
+      braces.push(false);
+    } else if (kind === ts.SyntaxKind.CloseBraceToken) {
+      braces.pop();
+    }
+
+    tokens.push(scanner.getTokenText());
+    previous = kind;
+  }
+
+  return tokens.join(" ");
 }
 
 function baselineFileKey(file: string, root: string): string {
@@ -68,9 +126,46 @@ function matchKey(file: string, expr: string): string {
   return `${file}\0${normalizeExpr(expr)}`;
 }
 
-function isPatternCompatible(entry: BaselineCrash, crash: CrashReport): boolean {
-  // Baselines written before `pattern` was recorded match any pattern.
-  return entry.pattern === undefined || entry.pattern === crash.pattern;
+/**
+ * Pairs each crash with at most one entry, preferring the entry on the same
+ * line, then the nearest one. Every entry passed in must be compatible with
+ * every crash, so the number of pairs is always min(crashes, entries): line
+ * numbers only decide which crash is left over. Returns unmatched crashes.
+ */
+function assignByLine(crashes: CrashReport[], entries: BaselineCrash[]): CrashReport[] {
+  const available = [...entries];
+  const unmatched: CrashReport[] = [];
+
+  for (const crash of crashes) {
+    const exact = available.findIndex((entry) => entry.line === crash.line);
+    if (exact >= 0) {
+      available.splice(exact, 1);
+    } else {
+      unmatched.push(crash);
+    }
+  }
+
+  const leftover: CrashReport[] = [];
+  unmatched.sort((a, b) => a.line - b.line);
+  for (const crash of unmatched) {
+    let best = -1;
+    let bestDistance = Infinity;
+    available.forEach((entry, index) => {
+      const distance = Math.abs(entry.line - crash.line);
+      if (distance < bestDistance) {
+        best = index;
+        bestDistance = distance;
+      }
+    });
+
+    if (best >= 0) {
+      available.splice(best, 1);
+    } else {
+      leftover.push(crash);
+    }
+  }
+
+  return leftover;
 }
 
 /**
@@ -113,40 +208,30 @@ export function findNewCrashes(
 
   const newCrashes = new Set<CrashReport>();
   for (const [key, group] of groups) {
-    const available = [...(pool.get(key) ?? [])];
-    const unmatched: CrashReport[] = [];
+    const entries = pool.get(key) ?? [];
 
+    // Pattern-specific entries can only cover their own pattern, so they are
+    // spent first; legacy entries without `pattern` (written before it was
+    // recorded) cover any pattern and absorb whatever is left. This order
+    // always covers as many crashes as possible.
+    const leftovers: CrashReport[] = [];
+    const byPattern = new Map<string, CrashReport[]>();
     for (const crash of group) {
-      const exact = available.findIndex(
-        (entry) => entry.line === crash.line && isPatternCompatible(entry, crash),
-      );
-      if (exact >= 0) {
-        available.splice(exact, 1);
+      const list = byPattern.get(crash.pattern);
+      if (list) {
+        list.push(crash);
       } else {
-        unmatched.push(crash);
+        byPattern.set(crash.pattern, [crash]);
       }
     }
+    for (const [pattern, patternCrashes] of byPattern) {
+      const specific = entries.filter((entry) => entry.pattern === pattern);
+      leftovers.push(...assignByLine(patternCrashes, specific));
+    }
 
-    unmatched.sort((a, b) => a.line - b.line);
-    for (const crash of unmatched) {
-      let best = -1;
-      let bestDistance = Infinity;
-      available.forEach((entry, index) => {
-        if (!isPatternCompatible(entry, crash)) {
-          return;
-        }
-        const distance = Math.abs(entry.line - crash.line);
-        if (distance < bestDistance) {
-          best = index;
-          bestDistance = distance;
-        }
-      });
-
-      if (best >= 0) {
-        available.splice(best, 1);
-      } else {
-        newCrashes.add(crash);
-      }
+    const legacy = entries.filter((entry) => entry.pattern === undefined);
+    for (const crash of assignByLine(leftovers, legacy)) {
+      newCrashes.add(crash);
     }
   }
 

@@ -13,7 +13,7 @@ The test scripts import from `dist/`, so **you must build before testing**:
 ```bash
 npm run build        # tsc -p tsconfig.build.json -> dist/
 npm run typecheck    # tsc --noEmit (the only "lint" — there is no ESLint/Prettier)
-npm test             # runs the 6 suites below in order (build first!)
+npm test             # runs the 7 suites below in order (build first!)
 npm run ci:check     # typecheck + test + pack:check (closest mirror of CI)
 ```
 
@@ -22,6 +22,7 @@ There is no test framework — each suite is a standalone Node script under `scr
 ```bash
 npm run build && node scripts/test-detectors.mjs    # detector fixtures in cases/detectors-project
 npm run test:cli          # CLI contract (flags, help, exit codes) — cases/cli-project
+npm run test:baseline     # baseline matching (findNewCrashes) unit checks
 npm run test:integration  # end-to-end CLI runs
 npm run test:json         # JSON reporter schema
 npm run test:action       # GitHub Action shell wrapper
