@@ -3,7 +3,7 @@
 import { createRequire } from "module";
 import { Worker, type WorkerOptions } from "node:worker_threads";
 import { analyze, loadProgramRobust } from "./analyze.ts";
-import { checkBaselineOptionsMismatch, isNew, loadBaseline, saveBaseline } from "./reporters/baseline.ts";
+import { checkBaselineOptionsMismatch, findNewCrashes, loadBaseline, saveBaseline } from "./reporters/baseline.ts";
 import { printBaselineMismatchWarning, printDebt, printDoctor, printFix } from "./reporters/index.ts";
 import { printJsonReport } from "./reporters/json.ts";
 import { c } from "./utils/colors.ts";
@@ -289,7 +289,7 @@ const baselineMismatch = baseline
 if (jsonOutput) {
   const comparableBase = baselineMismatch ? null : baseline;
   const newCrashes = comparableBase
-    ? crashes.filter((crash) => isNew(crash, comparableBase))
+    ? [...findNewCrashes(crashes, comparableBase, root)]
     : crashes;
   const failOnNewWillFail =
     command === "doctor" &&

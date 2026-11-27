@@ -187,7 +187,64 @@ function testDebt() {
   assert(output.includes("(same)"), "Expected debt to compare against the saved baseline", output);
 }
 
+function prependLines(filePath, text) {
+  fs.writeFileSync(filePath, `${text}${fs.readFileSync(filePath, "utf8")}`);
+}
+
+function testFailOnNewIgnoresLineShifts() {
+  const projectDir = createProjectFromFixture();
+  const baselineResult = runCli(["baseline"], projectDir);
+  assert(baselineResult.status === 0, "Expected setup baseline command to succeed", baselineResult.stdout);
+
+  prependLines(path.join(projectDir, "app.ts"), "// unrelated edit\n// another one\n\n");
+
+  const result = runCli(["doctor", "--json", "--fail-on-new"], projectDir);
+  assert(result.status === 0, "Expected --fail-on-new to pass when known crashes only moved lines", result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert(report.summary.new === 0, "Expected no new crashes after a pure line shift", result.stdout);
+  assert(report.crashes.every((crash) => crash.status === "known"), "Expected shifted crashes to stay known", result.stdout);
+}
+
+function testFailOnNewFlagsAddedOccurrence() {
+  const projectDir = createProjectFromFixture();
+  const baselineResult = runCli(["baseline"], projectDir);
+  assert(baselineResult.status === 0, "Expected setup baseline command to succeed", baselineResult.stdout);
+
+  const appPath = path.join(projectDir, "app.ts");
+  prependLines(appPath, "// shift\n");
+  fs.appendFileSync(appPath, "\nconsole.log(user.profile.name);\n");
+
+  const result = runCli(["doctor", "--json", "--fail-on-new"], projectDir);
+  assert(result.status === 1, "Expected --fail-on-new to fail for a second occurrence of a known expression", result.stdout);
+  const report = JSON.parse(result.stdout);
+  const fresh = report.crashes.filter((crash) => crash.status === "new");
+  assert(fresh.length === 1, "Expected exactly one new crash", result.stdout);
+  const lineCount = fs.readFileSync(appPath, "utf8").trimEnd().split(/\r?\n/).length;
+  assert(fresh[0].line === lineCount, "Expected the appended occurrence (not the shifted one) to be new", result.stdout);
+}
+
+function testFailOnNewAcceptsLegacyBaseline() {
+  const projectDir = createProjectFromFixture();
+  const doctor = JSON.parse(runCli(["doctor", "--json"], projectDir).stdout);
+  fs.writeFileSync(
+    path.join(projectDir, ".safets-baseline.json"),
+    JSON.stringify({
+      version: "1.0.0",
+      date: new Date().toISOString(),
+      options: { includeTests: false },
+      // Pre-pattern baselines only stored file/line/expr; lines are stale here.
+      crashes: doctor.crashes.map((crash) => ({ file: crash.file, line: crash.line + 10, expr: crash.expr })),
+    }, null, 2),
+  );
+
+  const result = runCli(["doctor", "--json", "--fail-on-new"], projectDir);
+  assert(result.status === 0, "Expected a legacy baseline without patterns to still match", result.stdout);
+}
+
 try {
+  testFailOnNewIgnoresLineShifts();
+  testFailOnNewFlagsAddedOccurrence();
+  testFailOnNewAcceptsLegacyBaseline();
   testDoctor();
   testDoctorIncludeTests();
   testDoctorJson();

@@ -1,4 +1,4 @@
-import { isNew } from "./baseline.ts";
+import { findNewCrashes } from "./baseline.ts";
 import type { Baseline, CrashReport, PatternName, ProgramResult } from "../utils/types.ts";
 import { toProjectRelativePath } from "../utils/files.ts";
 
@@ -108,11 +108,14 @@ export function buildJsonReport(options: BuildJsonReportOptions) {
       ? null
       : options.baselineMismatch;
   const comparableBaseline = effectiveMismatch ? null : effectiveBaseline;
-  const newCrashes = comparableBaseline
-    ? options.crashes.filter((crash) => isNew(crash, comparableBaseline))
+  const newSet = comparableBaseline
+    ? findNewCrashes(options.crashes, comparableBaseline, options.root)
+    : null;
+  const newCrashes = newSet
+    ? options.crashes.filter((crash) => newSet.has(crash))
     : options.crashes;
-  const knownCrashes = comparableBaseline
-    ? options.crashes.filter((crash) => !isNew(crash, comparableBaseline))
+  const knownCrashes = newSet
+    ? options.crashes.filter((crash) => !newSet.has(crash))
     : [];
   const baselinePatternCounts = countByPattern(
     comparableBaseline
@@ -188,8 +191,8 @@ export function buildJsonReport(options: BuildJsonReportOptions) {
       pattern: crash.pattern,
       confidence: crash.confidence,
       fallback: crash.fallback ?? false,
-      status: comparableBaseline
-        ? isNew(crash, comparableBaseline)
+      status: newSet
+        ? newSet.has(crash)
           ? "new"
           : "known"
         : "current",

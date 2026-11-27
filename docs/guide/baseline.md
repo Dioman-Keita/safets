@@ -45,6 +45,8 @@ Step 3 - block only new crashes in CI:
 - `exit 0` - no new crashes since baseline
 - `exit 1` - a new crash was introduced, CI fails
 
+A crash is matched against the baseline by file, pattern and expression, not by line number, so adding an import or moving a function does not turn known crashes into new ones. Each baseline entry covers one occurrence: writing the same unsafe expression a second time in a file is still reported as new.
+
 ## Debt tracking over time
 
 When a baseline exists, `safets debt` shows the delta per category:
